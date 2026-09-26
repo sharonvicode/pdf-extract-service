@@ -23,11 +23,12 @@ pdf-extract-service/
 │   │   └── config.py                 # Configuración vía variables de entorno
 │   ├── exceptions.py                 # Excepciones de dominio (agnósticas de HTTP)
 │   ├── schemas/
-│   │   └── extraction.py             # DTOs Pydantic: entrada y salida
+│   │   ├── extraction.py             # DTOs Pydantic: entrada y salida
+│   │   └── problem_details.py        # Cuerpo de error RFC 9457
 │   ├── services/
 │   │   └── pdf_extractor.py          # Lógica de negocio: extracción con pypdf
 │   └── api/
-│       ├── error_handlers.py         # Traduce excepciones de dominio -> HTTP status
+│       ├── error_handlers.py         # Traduce excepciones -> respuestas RFC 9457
 │       └── v1/
 │           ├── router.py
 │           └── endpoints/
@@ -36,46 +37,36 @@ pdf-extract-service/
 │   ├── conftest.py                   # Fixtures: PDFs válidos generados en memoria
 │   ├── test_pdf_extractor_service.py # Tests unitarios de la lógica de negocio
 │   ├── test_schemas.py               # Tests del contrato de entrada
-│   └── test_extraction_endpoint.py   # Tests de integración del endpoint HTTP
+│   ├── test_extraction_endpoint.py   # Tests de integración del endpoint HTTP
+│   └── test_problem_details.py       # Tests del formato de errores RFC 9457
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
-├── requirements.txt
-├── requirements-dev.txt
-└── pytest.ini
+├── .python-version                  # Versión de Python usada por uv
+├── pyproject.toml                    # Dependencias y configuración (pytest, ruff)
+└── uv.lock                           # Versiones exactas de las dependencias
 ```
 
-**Principio de diseño:** el endpoint HTTP no conoce la lógica de extracción, y el servicio de extracción no conoce HTTP. Se comunican mediante excepciones de dominio (`app/exceptions.py`), que `app/api/error_handlers.py` traduce a códigos de estado HTTP. Esto mantiene la lógica de negocio reutilizable fuera del contexto web.
+**Principio de diseño:** el endpoint HTTP no conoce la lógica de extracción, y el servicio de extracción no conoce HTTP. Se comunican mediante excepciones de dominio (`app/exceptions.py`), que `app/api/error_handlers.py` traduce a respuestas de error [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457). Esto mantiene la lógica de negocio reutilizable fuera del contexto web.
 
 ## Requisitos previos
 
 - Python **3.12+**
+- [uv](https://docs.astral.sh/uv/) para manejar el entorno y las dependencias
 - Docker y Docker Compose (opcional, para correr en contenedor)
 
 ## Instalación y entorno virtual
 
-### Windows (PowerShell)
-
-```powershell
-# Crear el entorno virtual
-python -m venv .venv
-
-# Activarlo
-.venv\Scripts\Activate.ps1
-
-# Instalar dependencias de desarrollo (incluye las de producción + pytest)
-pip install -r requirements-dev.txt
-```
-
-> Si `Activate.ps1` falla por política de ejecución de scripts, corré `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` y volvé a intentar.
-
-### Linux / macOS / Git Bash
-
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate      # Git Bash en Windows: source .venv/Scripts/activate
-pip install -r requirements-dev.txt
+# Crea .venv e instala las dependencias de producción y desarrollo desde uv.lock
+uv sync
 ```
+
+No hace falta activar el entorno: `uv run <comando>` lo usa automáticamente.
+
+> **Proyecto dentro de OneDrive:** si `uv sync` falla con *"os error 396"*, OneDrive no permite los hardlinks que uv usa por defecto. Definí `UV_LINK_MODE=copy` (en PowerShell: `$env:UV_LINK_MODE = "copy"`) y volvé a correrlo.
+
+Para agregar una dependencia: `uv add <paquete>` (o `uv add --dev <paquete>` si es solo de desarrollo).
 
 ### Variables de entorno
 
@@ -97,10 +88,8 @@ cp .env.example .env
 
 ## Levantar el servicio localmente
 
-Con el entorno virtual activado:
-
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 - Documentación interactiva (Swagger UI): http://localhost:8000/docs
@@ -128,33 +117,58 @@ Respuesta esperada:
 }
 ```
 
-Códigos de error posibles: `400` (archivo vacío), `415` (content-type no soportado), `413` (archivo supera el tamaño máximo), `422` (el archivo no es un PDF válido/parseable).
+### Errores (RFC 9457)
+
+Todos los errores se devuelven con `Content-Type: application/problem+json` siguiendo [RFC 9457 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457):
+
+```json
+{
+  "type": "about:blank",
+  "title": "Unprocessable Content",
+  "status": 422,
+  "detail": "Could not parse file as PDF: Stream has ended unexpectedly",
+  "instance": "/api/v1/extract"
+}
+```
+
+| Status | Cuándo                                                                 |
+|--------|-------------------------------------------------------------------------|
+| `400`  | El archivo está vacío                                                    |
+| `413`  | El archivo supera `MAX_FILE_SIZE_MB`                                     |
+| `415`  | El content-type no está en `ALLOWED_CONTENT_TYPES`                       |
+| `422`  | El archivo no es un PDF legible, o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
+| `404` / `405` | Ruta o método inexistente                                         |
+| `500`  | Error inesperado. El `detail` es genérico; la causa real solo queda en el log del servicio |
 
 ## Correr los tests (pytest)
 
-Con el entorno virtual activado y las dependencias de `requirements-dev.txt` instaladas:
-
 ```bash
-pytest
+uv run pytest
 ```
 
 Modo verboso:
 
 ```bash
-pytest -v
+uv run pytest -v
 ```
 
 Con reporte de cobertura:
 
 ```bash
-pytest --cov=app --cov-report=term-missing
+uv run pytest --cov=app --cov-report=term-missing
 ```
 
 Correr solo un archivo o clase de tests puntual:
 
 ```bash
-pytest tests/test_pdf_extractor_service.py -v
-pytest tests/test_extraction_endpoint.py::TestExtractEndpointSuccess -v
+uv run pytest tests/test_pdf_extractor_service.py -v
+uv run pytest tests/test_extraction_endpoint.py::TestExtractEndpointSuccess -v
+```
+
+Linter:
+
+```bash
+uv run ruff check .
 ```
 
 Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay binarios versionados), lo que permite cubrir distintos tamaños de archivo:
@@ -209,5 +223,6 @@ El contenedor corre como usuario no-root, expone el puerto `8000` y define un `H
 | Servidor ASGI         | Uvicorn                |
 | Extracción de PDF     | pypdf                  |
 | Validación de datos   | Pydantic / pydantic-settings |
-| Testing                | pytest, pytest-asyncio, httpx |
+| Testing                | pytest, pytest-asyncio, httpx2 |
+| Dependencias           | uv                     |
 | Contenedores            | Docker / Docker Compose |

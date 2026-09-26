@@ -1,0 +1,35 @@
+[project]
+name = "pdf-extract-service"
+version = "0.1.0"
+description = "Extractor: microservicio que extrae el texto de archivos PDF con pypdf"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.141.1",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    "pypdf==6.19.0",
+    "python-multipart==0.0.32",
+    "uvicorn[standard]==0.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "ruff>=0.16.8",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
