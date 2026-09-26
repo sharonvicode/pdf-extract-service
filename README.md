@@ -180,7 +180,7 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
 
 ## Uso con Docker Compose
 
-1. Asegurate de tener un archivo `.env` (copiado desde `.env.example`):
+1. (Opcional) Si querés cambiar algún valor por defecto, creá un `.env` a partir de `.env.example` y editalo. Sin `.env` el servicio usa los valores por defecto:
 
    ```bash
    cp .env.example .env
@@ -210,7 +210,8 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
 
 ```bash
 docker build -t extractor-service:latest .
-docker run --rm -p 8000:8000 --env-file .env extractor-service:latest
+docker run --rm -p 8000:8000 extractor-service:latest
+# con variables propias: docker run --rm -p 8000:8000 --env-file .env extractor-service:latest
 ```
 
 El contenedor corre como usuario no-root, expone el puerto `8000` y define un `HEALTHCHECK` contra `/health`.
