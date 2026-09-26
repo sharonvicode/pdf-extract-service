@@ -23,11 +23,12 @@ pdf-extract-service/
 │   │   └── config.py                 # Configuración vía variables de entorno
 │   ├── exceptions.py                 # Excepciones de dominio (agnósticas de HTTP)
 │   ├── schemas/
-│   │   └── extraction.py             # DTOs Pydantic: entrada y salida
+│   │   ├── extraction.py             # DTOs Pydantic: entrada y salida
+│   │   └── problem_details.py        # Cuerpo de error RFC 9457
 │   ├── services/
 │   │   └── pdf_extractor.py          # Lógica de negocio: extracción con pypdf
 │   └── api/
-│       ├── error_handlers.py         # Traduce excepciones de dominio -> HTTP status
+│       ├── error_handlers.py         # Traduce excepciones -> respuestas RFC 9457
 │       └── v1/
 │           ├── router.py
 │           └── endpoints/
@@ -36,7 +37,8 @@ pdf-extract-service/
 │   ├── conftest.py                   # Fixtures: PDFs válidos generados en memoria
 │   ├── test_pdf_extractor_service.py # Tests unitarios de la lógica de negocio
 │   ├── test_schemas.py               # Tests del contrato de entrada
-│   └── test_extraction_endpoint.py   # Tests de integración del endpoint HTTP
+│   ├── test_extraction_endpoint.py   # Tests de integración del endpoint HTTP
+│   └── test_problem_details.py       # Tests del formato de errores RFC 9457
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
@@ -45,7 +47,7 @@ pdf-extract-service/
 └── uv.lock                           # Versiones exactas de las dependencias
 ```
 
-**Principio de diseño:** el endpoint HTTP no conoce la lógica de extracción, y el servicio de extracción no conoce HTTP. Se comunican mediante excepciones de dominio (`app/exceptions.py`), que `app/api/error_handlers.py` traduce a códigos de estado HTTP. Esto mantiene la lógica de negocio reutilizable fuera del contexto web.
+**Principio de diseño:** el endpoint HTTP no conoce la lógica de extracción, y el servicio de extracción no conoce HTTP. Se comunican mediante excepciones de dominio (`app/exceptions.py`), que `app/api/error_handlers.py` traduce a respuestas de error [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457). Esto mantiene la lógica de negocio reutilizable fuera del contexto web.
 
 ## Requisitos previos
 
@@ -115,7 +117,28 @@ Respuesta esperada:
 }
 ```
 
-Códigos de error posibles: `400` (archivo vacío), `415` (content-type no soportado), `413` (archivo supera el tamaño máximo), `422` (el archivo no es un PDF válido/parseable).
+### Errores (RFC 9457)
+
+Todos los errores se devuelven con `Content-Type: application/problem+json` siguiendo [RFC 9457 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457):
+
+```json
+{
+  "type": "about:blank",
+  "title": "Unprocessable Content",
+  "status": 422,
+  "detail": "Could not parse file as PDF: Stream has ended unexpectedly",
+  "instance": "/api/v1/extract"
+}
+```
+
+| Status | Cuándo                                                                 |
+|--------|-------------------------------------------------------------------------|
+| `400`  | El archivo está vacío                                                    |
+| `413`  | El archivo supera `MAX_FILE_SIZE_MB`                                     |
+| `415`  | El content-type no está en `ALLOWED_CONTENT_TYPES`                       |
+| `422`  | El archivo no es un PDF legible, o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
+| `404` / `405` | Ruta o método inexistente                                         |
+| `500`  | Error inesperado. El `detail` es genérico; la causa real solo queda en el log del servicio |
 
 ## Correr los tests (pytest)
 

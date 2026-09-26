@@ -6,6 +6,7 @@ No extraction logic lives here (SRP).
 """
 from fastapi import APIRouter, Depends, File, UploadFile
 
+from app.api.error_handlers import DOMAIN_ERROR_RESPONSES
 from app.schemas.extraction import ExtractionMetadata, ExtractionResponse, PDFUploadRequest
 from app.services.pdf_extractor import PDFExtractorService
 
@@ -21,6 +22,7 @@ def get_pdf_extractor_service() -> PDFExtractorService:
     "/extract",
     response_model=ExtractionResponse,
     summary="Extract text from a PDF file",
+    responses=DOMAIN_ERROR_RESPONSES,
 )
 async def extract_pdf_text(
     file: UploadFile = File(..., description="PDF file to extract text from."),

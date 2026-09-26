@@ -54,9 +54,3 @@ class ExtractionResponse(BaseModel):
 
     text: str = Field(..., description="Full text extracted from the PDF.")
     metadata: ExtractionMetadata
-
-
-class ErrorResponse(BaseModel):
-    """Standard error payload returned by the API on failure."""
-
-    detail: str
