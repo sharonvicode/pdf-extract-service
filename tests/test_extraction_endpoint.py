@@ -1,5 +1,4 @@
 """Integration tests for the /api/v1/extract HTTP endpoint."""
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
