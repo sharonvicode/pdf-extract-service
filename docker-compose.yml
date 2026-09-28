@@ -7,11 +7,10 @@ services:
     container_name: extractor-service
     ports:
       - "${PORT:-8000}:8000"
+    # Optional: without a .env file the service runs with the defaults from app/core/config.py.
     env_file:
-      - .env
-    environment:
-      HOST: 0.0.0.0
-      PORT: 8000
+      - path: .env
+        required: false
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]

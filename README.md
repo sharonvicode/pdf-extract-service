@@ -20,7 +20,8 @@ pdf-extract-service/
 ├── app/
 │   ├── main.py                       # Application factory (FastAPI) + /health
 │   ├── core/
-│   │   └── config.py                 # Configuración vía variables de entorno
+│   │   ├── config.py                 # Configuración vía variables de entorno
+│   │   └── logging.py                # Logging del servicio según LOG_LEVEL
 │   ├── exceptions.py                 # Excepciones de dominio (agnósticas de HTTP)
 │   ├── schemas/
 │   │   ├── extraction.py             # DTOs Pydantic: entrada y salida
@@ -80,11 +81,10 @@ cp .env.example .env
 |--------------------------|-----------------------------------------------|---------------------------|
 | `APP_NAME`               | Nombre de la aplicación                       | `extractor-service`       |
 | `APP_VERSION`            | Versión expuesta en `/docs`                   | `0.1.0`                   |
-| `HOST`                   | Host donde escucha uvicorn                    | `0.0.0.0`                 |
-| `PORT`                   | Puerto donde escucha uvicorn                  | `8000`                    |
+| `PORT`                   | Puerto de tu máquina donde Docker Compose publica el servicio (dentro del contenedor siempre es `8000`) | `8000` |
 | `MAX_FILE_SIZE_MB`       | Tamaño máximo de PDF aceptado (MB)            | `10`                      |
 | `ALLOWED_CONTENT_TYPES`  | Content-types aceptados (lista JSON)          | `["application/pdf"]`     |
-| `LOG_LEVEL`              | Nivel de logging                              | `INFO`                    |
+| `LOG_LEVEL`              | Nivel de logging del servicio: `DEBUG`, `INFO`, `WARNING`, `ERROR` o `CRITICAL` (otro valor impide arrancar) | `INFO` |
 
 ## Levantar el servicio localmente
 
@@ -180,7 +180,7 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
 
 ## Uso con Docker Compose
 
-1. Asegurate de tener un archivo `.env` (copiado desde `.env.example`):
+1. (Opcional) Si querés cambiar algún valor por defecto, creá un `.env` a partir de `.env.example` y editalo. Sin `.env` el servicio usa los valores por defecto:
 
    ```bash
    cp .env.example .env
@@ -210,7 +210,8 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
 
 ```bash
 docker build -t extractor-service:latest .
-docker run --rm -p 8000:8000 --env-file .env extractor-service:latest
+docker run --rm -p 8000:8000 extractor-service:latest
+# con variables propias: docker run --rm -p 8000:8000 --env-file .env extractor-service:latest
 ```
 
 El contenedor corre como usuario no-root, expone el puerto `8000` y define un `HEALTHCHECK` contra `/health`.

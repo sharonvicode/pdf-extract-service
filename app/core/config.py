@@ -1,5 +1,6 @@
 """Application configuration loaded from environment variables."""
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,19 +8,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Runtime configuration for the Extractor microservice."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # extra="ignore": the shared .env also holds variables for Docker Compose (e.g. PORT).
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "extractor-service"
     app_version: str = "0.1.0"
     api_v1_prefix: str = "/api/v1"
 
-    host: str = "0.0.0.0"
-    port: int = 8000
-
     max_file_size_mb: int = 10
     allowed_content_types: set[str] = {"application/pdf"}
 
-    log_level: str = "INFO"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     @property
     def max_file_size_bytes(self) -> int:
