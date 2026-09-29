@@ -17,7 +17,7 @@ class FileTooLargeError(ExtractionError):
         self.size_bytes = size_bytes
         self.max_bytes = max_bytes
         super().__init__(
-            f"File size {size_bytes} bytes exceeds the maximum of {max_bytes} bytes."
+            f"El archivo pesa {size_bytes} bytes y supera el máximo de {max_bytes} bytes."
         )
 
 

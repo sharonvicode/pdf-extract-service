@@ -19,7 +19,7 @@ def get_pdf_extractor_service() -> PDFExtractorService:
 
 
 @router.post(
-    "/extract",
+    "/extraer",
     response_model=ExtractionResponse,
     summary="Extract text from a PDF file",
     responses=DOMAIN_ERROR_RESPONSES,
@@ -38,11 +38,11 @@ async def extract_pdf_text(
     result = await service.extract_text_async(file_bytes)
 
     return ExtractionResponse(
-        text=result.text,
-        metadata=ExtractionMetadata(
-            filename=file.filename or "unknown.pdf",
-            size_bytes=len(file_bytes),
-            page_count=result.page_count,
-            processing_time_ms=result.processing_time_ms,
+        texto=result.text,
+        metadatos=ExtractionMetadata(
+            nombre_archivo=file.filename or "unknown.pdf",
+            tamanio_bytes=len(file_bytes),
+            cantidad_paginas=result.page_count,
+            tiempo_procesamiento_ms=result.processing_time_ms,
         ),
     )

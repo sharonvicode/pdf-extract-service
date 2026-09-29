@@ -28,10 +28,10 @@ class PDFUploadRequest(BaseModel):
 class ExtractionMetadata(BaseModel):
     """Metadata describing the source file and the extraction result."""
 
-    filename: str = Field(..., description="Original name of the uploaded file.")
-    size_bytes: int = Field(..., ge=0, description="Size of the uploaded file in bytes.")
-    page_count: int = Field(..., ge=0, description="Number of pages in the PDF.")
-    processing_time_ms: float = Field(
+    nombre_archivo: str = Field(..., description="Original name of the uploaded file.")
+    tamanio_bytes: int = Field(..., ge=0, description="Size of the uploaded file in bytes.")
+    cantidad_paginas: int = Field(..., ge=0, description="Number of pages in the PDF.")
+    tiempo_procesamiento_ms: float = Field(
         ..., ge=0, description="Time taken to extract the text, in milliseconds."
     )
 
@@ -39,5 +39,5 @@ class ExtractionMetadata(BaseModel):
 class ExtractionResponse(BaseModel):
     """Response DTO returned by the extraction endpoint on success."""
 
-    text: str = Field(..., description="Full text extracted from the PDF.")
-    metadata: ExtractionMetadata
+    texto: str = Field(..., description="Full text extracted from the PDF.")
+    metadatos: ExtractionMetadata
