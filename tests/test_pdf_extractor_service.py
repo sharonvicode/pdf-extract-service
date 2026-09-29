@@ -1,11 +1,11 @@
 """Unit tests (TDD) for the PDF extraction business logic.
 
 Covers PDFs of different sizes (1, 10, 100 pages) plus the invalid-input
-edge cases the service must reject with domain exceptions.
+and no-text edge cases the service must reject with domain exceptions.
 """
 import pytest
 
-from app.exceptions import InvalidPDFError
+from app.exceptions import InvalidPDFError, NoExtractableTextError
 from app.services.pdf_extractor import ExtractionResult, PDFExtractorService
 
 
@@ -48,6 +48,10 @@ class TestExtractTextSync:
     def test_raises_invalid_pdf_error_for_non_pdf_bytes(self, service, not_a_pdf_bytes):
         with pytest.raises(InvalidPDFError):
             service.extract_text(not_a_pdf_bytes)
+
+    def test_raises_no_extractable_text_error_for_pdf_without_text(self, service, blank_pdf_bytes):
+        with pytest.raises(NoExtractableTextError):
+            service.extract_text(blank_pdf_bytes)
 
 
 class TestExtractTextAsync:

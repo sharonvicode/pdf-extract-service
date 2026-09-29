@@ -47,6 +47,10 @@ class TestDomainErrorsAreProblemDetails:
     def test_invalid_pdf(self, corrupted_pdf_bytes):
         _assert_is_problem(_upload(corrupted_pdf_bytes), 422, "Unprocessable Content", EXTRACT_PATH)
 
+    def test_pdf_without_extractable_text(self, blank_pdf_bytes):
+        body = _assert_is_problem(_upload(blank_pdf_bytes), 422, "Unprocessable Content", EXTRACT_PATH)
+        assert "no extractable text" in body["detail"]
+
 
 class TestFrameworkErrorsAreProblemDetails:
     def test_missing_file_field_lists_the_validation_errors(self):

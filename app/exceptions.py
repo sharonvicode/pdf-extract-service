@@ -35,3 +35,7 @@ class UnsupportedFileTypeError(ExtractionError):
 
 class InvalidPDFError(ExtractionError):
     """Raised when the file content cannot be parsed as a valid PDF."""
+
+
+class NoExtractableTextError(ExtractionError):
+    """Raised when a readable PDF contains no text (e.g. blank or scanned pages)."""
