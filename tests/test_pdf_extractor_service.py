@@ -49,6 +49,12 @@ class TestExtractTextSync:
         with pytest.raises(InvalidPDFError):
             service.extract_text(not_a_pdf_bytes)
 
+    def test_raises_no_extractable_text_error_for_pdf_without_text(self, service, blank_pdf_bytes):
+        from app.exceptions import NoExtractableTextError
+
+        with pytest.raises(NoExtractableTextError):
+            service.extract_text(blank_pdf_bytes)
+
 
 class TestExtractTextAsync:
     @pytest.mark.asyncio

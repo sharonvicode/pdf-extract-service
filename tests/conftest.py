@@ -91,6 +91,16 @@ def large_pdf_bytes(make_pdf_bytes) -> bytes:
 
 
 @pytest.fixture
+def blank_pdf_bytes() -> bytes:
+    """A valid 1-page PDF with no text at all (e.g. a blank or scanned page)."""
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    buffer = BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
+@pytest.fixture
 def empty_file_bytes() -> bytes:
     return b""
 
