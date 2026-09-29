@@ -17,6 +17,7 @@ from app.exceptions import (
     ExtractionError,
     FileTooLargeError,
     InvalidPDFError,
+    NoExtractableTextError,
     UnsupportedFileTypeError,
 )
 from app.schemas.problem_details import PROBLEM_JSON_MEDIA_TYPE, ProblemDetails
@@ -28,6 +29,7 @@ STATUS_BY_EXCEPTION: dict[type[ExtractionError], int] = {
     UnsupportedFileTypeError: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
     FileTooLargeError: status.HTTP_413_CONTENT_TOO_LARGE,
     InvalidPDFError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    NoExtractableTextError: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
 UNEXPECTED_ERROR_DETAIL = "An unexpected error occurred."

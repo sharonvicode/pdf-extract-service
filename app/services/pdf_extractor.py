@@ -12,7 +12,7 @@ from io import BytesIO
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from app.exceptions import InvalidPDFError
+from app.exceptions import InvalidPDFError, NoExtractableTextError
 
 
 @dataclass(frozen=True)
@@ -45,10 +45,14 @@ class PDFExtractorService:
         except Exception as exc:  # pypdf can raise various low-level errors
             raise InvalidPDFError(f"Could not extract text from PDF: {exc}") from exc
 
+        text = "\n".join(pages_text).strip()
+        if not text:
+            raise NoExtractableTextError("The PDF has no extractable text.")
+
         elapsed_ms = (time.perf_counter() - started_at) * 1000
 
         return ExtractionResult(
-            text="\n".join(pages_text).strip(),
+            text=text,
             page_count=len(reader.pages),
             processing_time_ms=elapsed_ms,
         )
