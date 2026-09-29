@@ -14,7 +14,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="Standalone microservice that extracts text from PDF files.",
+        description="Microservicio independiente que extrae el texto de archivos PDF.",
     )
 
     register_exception_handlers(app)

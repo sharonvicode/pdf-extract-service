@@ -9,8 +9,8 @@ class ProblemDetails(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    type: str = Field("about:blank", description="URI identifying the problem type.")
-    title: str = Field(..., description="Short, human-readable summary of the problem type.")
-    status: int = Field(..., description="HTTP status code.")
-    detail: str = Field(..., description="Explanation specific to this occurrence of the problem.")
-    instance: str = Field(..., description="Path of the request that caused the problem.")
+    type: str = Field("about:blank", description="URI que identifica el tipo de problema.")
+    title: str = Field(..., description="Resumen breve del tipo de problema.")
+    status: int = Field(..., description="Código de estado HTTP.")
+    detail: str = Field(..., description="Explicación de este caso concreto.")
+    instance: str = Field(..., description="Ruta de la solicitud que causó el problema.")
