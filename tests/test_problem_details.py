@@ -32,12 +32,7 @@ def _assert_is_problem(response, status: int, title: str, instance: str) -> dict
 
 class TestDomainErrorsAreProblemDetails:
     def test_empty_file(self):
-        _assert_is_problem(_upload(b""), 400, "Bad Request", EXTRACT_PATH)
-
-    def test_unsupported_content_type(self, small_pdf_bytes):
-        response = _upload(small_pdf_bytes, content_type="text/plain")
-
-        _assert_is_problem(response, 415, "Unsupported Media Type", EXTRACT_PATH)
+        _assert_is_problem(_upload(b""), 422, "Unprocessable Content", EXTRACT_PATH)
 
     def test_file_too_large(self):
         too_large = b"0" * (get_settings().max_file_size_bytes + 1)
@@ -92,8 +87,14 @@ class TestUnexpectedErrors:
 
 
 class TestOpenAPIDocumentsErrors:
-    @pytest.mark.parametrize("status", ["400", "413", "415", "422"])
+    @pytest.mark.parametrize("status", ["413", "422"])
     def test_extract_endpoint_documents_problem_responses(self, status):
         responses = app.openapi()["paths"][EXTRACT_PATH]["post"]["responses"]
 
         assert PROBLEM_JSON in responses[status]["content"]
+
+    @pytest.mark.parametrize("status", ["400", "415"])
+    def test_does_not_document_validator_errors(self, status):
+        responses = app.openapi()["paths"][EXTRACT_PATH]["post"]["responses"]
+
+        assert status not in responses
