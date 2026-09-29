@@ -136,7 +136,7 @@ Todos los errores se devuelven con `Content-Type: application/problem+json` sigu
 | `400`  | El archivo está vacío                                                    |
 | `413`  | El archivo supera `MAX_FILE_SIZE_MB`                                     |
 | `415`  | El content-type no está en `ALLOWED_CONTENT_TYPES`                       |
-| `422`  | El archivo no es un PDF legible, o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
+| `422`  | El archivo no es un PDF legible, el PDF no tiene texto extraíble (por ejemplo, páginas en blanco o escaneadas), o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
 | `404` / `405` | Ruta o método inexistente                                         |
 | `500`  | Error inesperado. El `detail` es genérico; la causa real solo queda en el log del servicio |
 
@@ -176,6 +176,7 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
 - `small_pdf_bytes` → 1 página
 - `medium_pdf_bytes` → 10 páginas
 - `large_pdf_bytes` → 100 páginas
+- `blank_pdf_bytes` → PDF válido sin texto (página en blanco)
 - `corrupted_pdf_bytes` / `not_a_pdf_bytes` / `empty_file_bytes` → casos inválidos
 
 ## Uso con Docker Compose
