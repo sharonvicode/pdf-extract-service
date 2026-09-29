@@ -28,19 +28,26 @@ STATUS_BY_EXCEPTION: dict[type[ExtractionError], int] = {
     NoExtractableTextError: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
-UNEXPECTED_ERROR_DETAIL = "An unexpected error occurred."
-INVALID_REQUEST_DETAIL = "The request is not valid."
+UNEXPECTED_ERROR_DETAIL = "Ocurrió un error inesperado."
+INVALID_REQUEST_DETAIL = "La solicitud no es válida."
 
-# Python 3.12's HTTPStatus still uses the obsolete RFC 7231 phrases for these codes.
-_RFC_9110_TITLES = {
-    status.HTTP_413_CONTENT_TOO_LARGE: "Content Too Large",
-    status.HTTP_422_UNPROCESSABLE_CONTENT: "Unprocessable Content",
+_TITLES = {
+    status.HTTP_404_NOT_FOUND: "No encontrado",
+    status.HTTP_405_METHOD_NOT_ALLOWED: "Método no permitido",
+    status.HTTP_413_CONTENT_TOO_LARGE: "Contenido demasiado grande",
+    status.HTTP_422_UNPROCESSABLE_CONTENT: "Contenido no procesable",
+    status.HTTP_500_INTERNAL_SERVER_ERROR: "Error interno del servidor",
+}
+
+_HTTP_ERROR_DETAILS = {
+    status.HTTP_404_NOT_FOUND: "La ruta solicitada no existe.",
+    status.HTTP_405_METHOD_NOT_ALLOWED: "El método HTTP no está permitido en esta ruta.",
 }
 
 
 def problem_title(status_code: int) -> str:
-    """Return the standard (RFC 9110) reason phrase for ``status_code``."""
-    return _RFC_9110_TITLES.get(status_code, HTTPStatus(status_code).phrase)
+    """Return the Spanish title for ``status_code``, or the standard phrase if it has none."""
+    return _TITLES.get(status_code, HTTPStatus(status_code).phrase)
 
 
 # OpenAPI documentation of the domain errors, derived from the same mapping used at runtime.
@@ -80,7 +87,8 @@ async def domain_error_handler(request: Request, exc: ExtractionError) -> JSONRe
 
 
 async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    return problem_response(request, exc.status_code, str(exc.detail), headers=exc.headers)
+    detail = _HTTP_ERROR_DETAILS.get(exc.status_code, str(exc.detail))
+    return problem_response(request, exc.status_code, detail, headers=exc.headers)
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

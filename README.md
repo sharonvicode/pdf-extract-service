@@ -33,7 +33,7 @@ pdf-extract-service/
 │       └── v1/
 │           ├── router.py
 │           └── endpoints/
-│               └── extraction.py     # POST /api/v1/extract
+│               └── extraction.py     # POST /api/v1/extraer
 ├── tests/
 │   ├── conftest.py                   # Fixtures: PDFs válidos generados en memoria
 │   ├── test_pdf_extractor_service.py # Tests unitarios de la lógica de negocio
@@ -98,7 +98,7 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ### Ejemplo de uso del endpoint
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/extract \
+curl -X POST http://localhost:8000/api/v1/extraer \
   -F "file=@/ruta/a/documento.pdf;type=application/pdf"
 ```
 
@@ -106,12 +106,12 @@ Respuesta esperada:
 
 ```json
 {
-  "text": "contenido extraído del PDF...",
-  "metadata": {
-    "filename": "documento.pdf",
-    "size_bytes": 24531,
-    "page_count": 3,
-    "processing_time_ms": 12.4
+  "texto": "contenido extraído del PDF...",
+  "metadatos": {
+    "nombre_archivo": "documento.pdf",
+    "tamanio_bytes": 24531,
+    "cantidad_paginas": 3,
+    "tiempo_procesamiento_ms": 12.4
   }
 }
 ```
@@ -123,19 +123,22 @@ Todos los errores se devuelven con `Content-Type: application/problem+json` sigu
 ```json
 {
   "type": "about:blank",
-  "title": "Unprocessable Content",
+  "title": "Contenido no procesable",
   "status": 422,
-  "detail": "Could not parse file as PDF: Stream has ended unexpectedly",
-  "instance": "/api/v1/extract"
+  "detail": "El PDF no tiene texto extraíble.",
+  "instance": "/api/v1/extraer"
 }
 ```
 
-| Status | Cuándo                                                                 |
-|--------|-------------------------------------------------------------------------|
-| `413`  | El archivo supera `MAX_FILE_SIZE_MB`                                     |
-| `422`  | El archivo no es un PDF legible (incluido un archivo vacío), el PDF no tiene texto extraíble (por ejemplo, páginas en blanco o escaneadas), o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
-| `404` / `405` | Ruta o método inexistente                                         |
-| `500`  | Error inesperado. El `detail` es genérico; la causa real solo queda en el log del servicio |
+| Status | `title`                      | Cuándo |
+|--------|------------------------------|--------|
+| `413`  | Contenido demasiado grande   | El archivo supera `MAX_FILE_SIZE_MB` |
+| `422`  | Contenido no procesable      | El archivo no es un PDF legible (incluido un archivo vacío), el PDF no tiene texto extraíble (por ejemplo, páginas en blanco o escaneadas), o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
+| `404`  | No encontrado                | La ruta no existe |
+| `405`  | Método no permitido          | El método HTTP no está permitido en esa ruta |
+| `500`  | Error interno del servidor   | Error inesperado. El `detail` es genérico; la causa real solo queda en el log del servicio |
+
+Los campos de la respuesta, los títulos y los mensajes (`detail`) están en español. La lista `errors` que acompaña al 422 por campo faltante conserva los mensajes originales de FastAPI (en inglés).
 
 ## Correr los tests (pytest)
 

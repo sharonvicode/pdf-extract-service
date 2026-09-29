@@ -38,16 +38,16 @@ class PDFExtractorService:
         try:
             reader = PdfReader(BytesIO(file_bytes))
         except (PdfReadError, ValueError) as exc:
-            raise InvalidPDFError(f"Could not parse file as PDF: {exc}") from exc
+            raise InvalidPDFError(f"No se pudo leer el archivo como PDF: {exc}") from exc
 
         try:
             pages_text = [page.extract_text() or "" for page in reader.pages]
         except Exception as exc:  # pypdf can raise various low-level errors
-            raise InvalidPDFError(f"Could not extract text from PDF: {exc}") from exc
+            raise InvalidPDFError(f"No se pudo extraer el texto del PDF: {exc}") from exc
 
         text = "\n".join(pages_text).strip()
         if not text:
-            raise NoExtractableTextError("The PDF has no extractable text.")
+            raise NoExtractableTextError("El PDF no tiene texto extraíble.")
 
         elapsed_ms = (time.perf_counter() - started_at) * 1000
 
