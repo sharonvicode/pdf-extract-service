@@ -13,20 +13,16 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.exceptions import (
-    EmptyFileError,
     ExtractionError,
     FileTooLargeError,
     InvalidPDFError,
     NoExtractableTextError,
-    UnsupportedFileTypeError,
 )
 from app.schemas.problem_details import PROBLEM_JSON_MEDIA_TYPE, ProblemDetails
 
 logger = logging.getLogger(__name__)
 
 STATUS_BY_EXCEPTION: dict[type[ExtractionError], int] = {
-    EmptyFileError: status.HTTP_400_BAD_REQUEST,
-    UnsupportedFileTypeError: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
     FileTooLargeError: status.HTTP_413_CONTENT_TOO_LARGE,
     InvalidPDFError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     NoExtractableTextError: status.HTTP_422_UNPROCESSABLE_CONTENT,

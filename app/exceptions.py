@@ -10,10 +10,6 @@ class ExtractionError(Exception):
     """Base class for all extraction-related domain errors."""
 
 
-class EmptyFileError(ExtractionError):
-    """Raised when the uploaded file has no content."""
-
-
 class FileTooLargeError(ExtractionError):
     """Raised when the uploaded file exceeds the configured size limit."""
 
@@ -23,14 +19,6 @@ class FileTooLargeError(ExtractionError):
         super().__init__(
             f"File size {size_bytes} bytes exceeds the maximum of {max_bytes} bytes."
         )
-
-
-class UnsupportedFileTypeError(ExtractionError):
-    """Raised when the uploaded file is not an accepted content type."""
-
-    def __init__(self, content_type: str | None) -> None:
-        self.content_type = content_type
-        super().__init__(f"Unsupported content type: {content_type!r}.")
 
 
 class InvalidPDFError(ExtractionError):

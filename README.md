@@ -8,7 +8,7 @@ Forma parte de una arquitectura de microservicios más amplia: es un servicio ai
 
 - API asíncrona con **FastAPI**.
 - Extracción de texto con **pypdf**, corrida en un thread aparte para no bloquear el event loop.
-- Contratos de entrada/salida tipados con **Pydantic** (validación de content-type, tamaño máximo y archivo vacío).
+- Contratos de entrada/salida tipados con **Pydantic**. El Extractor solo limita el tamaño máximo (protección propia); validar el tipo de archivo o si está vacío es responsabilidad del **Validator**.
 - Arquitectura en capas: endpoints HTTP, lógica de negocio y esquemas están desacoplados entre sí (principios SOLID/KISS/DRY/YAGNI).
 - Suite de tests con **pytest**, desarrollada bajo un enfoque TDD, con PDFs generados en memoria de distintos tamaños (1, 10 y 100 páginas).
 - Listo para contenedores: `Dockerfile` optimizado y `docker-compose.yml` propio del servicio.
@@ -83,7 +83,6 @@ cp .env.example .env
 | `APP_VERSION`            | Versión expuesta en `/docs`                   | `0.1.0`                   |
 | `PORT`                   | Puerto de tu máquina donde Docker Compose publica el servicio (dentro del contenedor siempre es `8000`) | `8000` |
 | `MAX_FILE_SIZE_MB`       | Tamaño máximo de PDF aceptado (MB)            | `10`                      |
-| `ALLOWED_CONTENT_TYPES`  | Content-types aceptados (lista JSON)          | `["application/pdf"]`     |
 | `LOG_LEVEL`              | Nivel de logging del servicio: `DEBUG`, `INFO`, `WARNING`, `ERROR` o `CRITICAL` (otro valor impide arrancar) | `INFO` |
 
 ## Levantar el servicio localmente
@@ -133,10 +132,8 @@ Todos los errores se devuelven con `Content-Type: application/problem+json` sigu
 
 | Status | Cuándo                                                                 |
 |--------|-------------------------------------------------------------------------|
-| `400`  | El archivo está vacío                                                    |
 | `413`  | El archivo supera `MAX_FILE_SIZE_MB`                                     |
-| `415`  | El content-type no está en `ALLOWED_CONTENT_TYPES`                       |
-| `422`  | El archivo no es un PDF legible, el PDF no tiene texto extraíble (por ejemplo, páginas en blanco o escaneadas), o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
+| `422`  | El archivo no es un PDF legible (incluido un archivo vacío), el PDF no tiene texto extraíble (por ejemplo, páginas en blanco o escaneadas), o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
 | `404` / `405` | Ruta o método inexistente                                         |
 | `500`  | Error inesperado. El `detail` es genérico; la causa real solo queda en el log del servicio |
 

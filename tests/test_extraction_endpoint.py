@@ -47,15 +47,17 @@ class TestExtractEndpointSuccess:
 
 
 class TestExtractEndpointValidation:
-    def test_rejects_empty_file(self, empty_file_bytes):
+    def test_rejects_empty_file_as_unreadable_pdf(self, empty_file_bytes):
         response = _upload("empty.pdf", empty_file_bytes)
 
-        assert response.status_code == 400
+        assert response.status_code == 422
 
-    def test_rejects_non_pdf_content_type(self, small_pdf_bytes):
-        response = _upload("doc.txt", small_pdf_bytes, content_type="text/plain")
+    def test_does_not_validate_content_type(self, small_pdf_bytes):
+        """Checking the declared file type is the Validator's responsibility."""
+        response = _upload("doc.pdf", small_pdf_bytes, content_type="application/octet-stream")
 
-        assert response.status_code == 415
+        assert response.status_code == 200
+        assert "Page 1" in response.json()["text"]
 
     def test_rejects_corrupted_pdf(self, corrupted_pdf_bytes):
         response = _upload("corrupted.pdf", corrupted_pdf_bytes)

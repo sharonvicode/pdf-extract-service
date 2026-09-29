@@ -2,36 +2,23 @@
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import get_settings
-from app.exceptions import EmptyFileError, FileTooLargeError, UnsupportedFileTypeError
+from app.exceptions import FileTooLargeError
 
 
 class PDFUploadRequest(BaseModel):
     """Input contract describing an uploaded file before it is processed.
 
-    Decoupling this from FastAPI's ``UploadFile`` keeps validation rules
-    (content type, size) testable in isolation, independent of the web
-    framework. Validators raise the same domain exceptions used by the
-    service layer, so there is a single source of truth for what makes an
-    upload invalid.
+    Only the maximum size is enforced here, to protect the service's memory
+    and CPU. Checking the file type or whether it is empty is the Validator's
+    responsibility; unreadable content is rejected later by the PDF parser.
     """
 
     filename: str = Field(..., min_length=1)
-    content_type: str | None = None
     size_bytes: int = Field(..., ge=0)
-
-    @field_validator("content_type")
-    @classmethod
-    def content_type_must_be_allowed(cls, value: str | None) -> str | None:
-        allowed = get_settings().allowed_content_types
-        if value not in allowed:
-            raise UnsupportedFileTypeError(value)
-        return value
 
     @field_validator("size_bytes")
     @classmethod
     def size_must_be_within_limits(cls, value: int) -> int:
-        if value == 0:
-            raise EmptyFileError("Uploaded file is empty.")
         max_bytes = get_settings().max_file_size_bytes
         if value > max_bytes:
             raise FileTooLargeError(value, max_bytes)

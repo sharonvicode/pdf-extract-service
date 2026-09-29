@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
 
     max_file_size_mb: int = 10
-    allowed_content_types: set[str] = {"application/pdf"}
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
