@@ -8,15 +8,12 @@ from app.exceptions import FileTooLargeError
 class PDFUploadRequest(BaseModel):
     """Input contract describing an uploaded file before it is processed.
 
-    Decoupling this from FastAPI's ``UploadFile`` keeps validation rules
-    (content type, size) testable in isolation, independent of the web
-    framework. Validators raise the same domain exceptions used by the
-    service layer, so there is a single source of truth for what makes an
-    upload invalid.
+    Only the maximum size is enforced here, to protect the service's memory
+    and CPU. Checking the file type or whether it is empty is the Validator's
+    responsibility; unreadable content is rejected later by the PDF parser.
     """
 
     filename: str = Field(..., min_length=1)
-    content_type: str | None = None
     size_bytes: int = Field(..., ge=0)
 
     @field_validator("size_bytes")

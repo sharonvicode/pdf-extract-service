@@ -32,7 +32,6 @@ async def extract_pdf_text(
 
     PDFUploadRequest(
         filename=file.filename or "unknown.pdf",
-        content_type=file.content_type,
         size_bytes=len(file_bytes),
     )
 

@@ -14,8 +14,8 @@ EXTRACT_PATH = "/api/v1/extract"
 client = TestClient(app)
 
 
-def _upload(content: bytes, content_type: str = "application/pdf"):
-    return client.post(EXTRACT_PATH, files={"file": ("doc.pdf", content, content_type)})
+def _upload(content: bytes):
+    return client.post(EXTRACT_PATH, files={"file": ("doc.pdf", content, "application/pdf")})
 
 
 def _assert_is_problem(response, status: int, title: str, instance: str) -> dict:
