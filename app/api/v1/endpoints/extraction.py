@@ -6,16 +6,12 @@ No extraction logic lives here (SRP).
 """
 from fastapi import APIRouter, Depends, File, UploadFile
 
+from app.api.dependencies import get_pdf_extractor_service
 from app.api.error_handlers import DOMAIN_ERROR_RESPONSES
 from app.schemas.extraction import ExtractionMetadata, ExtractionResponse, PDFUploadRequest
 from app.services.pdf_extractor import PDFExtractorService
 
 router = APIRouter()
-
-
-def get_pdf_extractor_service() -> PDFExtractorService:
-    """Dependency provider, enabling substitution in tests (DIP)."""
-    return PDFExtractorService()
 
 
 @router.post(

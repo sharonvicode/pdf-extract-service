@@ -8,8 +8,9 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 | Vegeta (50 req/s × 30 s, timeout 30 s) | 16.65 req/s | 66.53% | 14.89 s | — |
 
 ## Fase 1 — Contrato del TP
-- [ ] `POST /extract` (multipart) → `200 {"content", "page_count"}`
+- [x] `POST /extract` (multipart) → `200 {"content", "page_count"}`
 - [ ] Decidir si además se acepta el PDF como body binario directo
+- [ ] Aplicar en `/extract` el límite de tamaño (413) que ya tiene `/api/v1/extraer`
 
 ## Fase 2 — Infraestructura
 - [ ] Reverse proxy (Traefik o Caddy) delante del Extractor

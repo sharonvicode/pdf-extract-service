@@ -4,7 +4,7 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.v1.endpoints.extraction import get_pdf_extractor_service
+from app.api.dependencies import get_pdf_extractor_service
 from app.core.config import get_settings
 from app.main import app
 

@@ -1,8 +1,8 @@
 """POST /extract: the endpoint and contract required by the load-testing TP."""
 from fastapi import APIRouter, Depends, File, UploadFile
 
+from app.api.dependencies import get_pdf_extractor_service
 from app.api.error_handlers import DOMAIN_ERROR_RESPONSES
-from app.api.v1.endpoints.extraction import get_pdf_extractor_service
 from app.schemas.extraction import ExtractContentResponse
 from app.services.pdf_extractor import PDFExtractorService
 
