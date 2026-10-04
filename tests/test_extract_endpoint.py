@@ -15,6 +15,10 @@ def _upload(content: bytes):
     )
 
 
+def _send_raw(content: bytes, content_type: str):
+    return client.post(EXTRACT_PATH, content=content, headers={"Content-Type": content_type})
+
+
 class TestExtractSuccess:
     def test_returns_content_and_page_count(self, small_pdf_bytes):
         response = _upload(small_pdf_bytes)
@@ -34,6 +38,29 @@ class TestExtractSuccess:
 
         assert response.status_code == 200
         assert response.json()["page_count"] == 100
+
+
+class TestExtractRawBody:
+    """The TP allows sending the PDF as the raw request body instead of multipart."""
+
+    def test_extracts_pdf_sent_as_raw_body(self, small_pdf_bytes):
+        response = _send_raw(small_pdf_bytes, "application/pdf")
+
+        assert response.status_code == 200
+        assert "Page 1" in response.json()["content"]
+        assert response.json()["page_count"] == 1
+
+    def test_accepts_raw_body_with_generic_binary_content_type(self, small_pdf_bytes):
+        response = _send_raw(small_pdf_bytes, "application/octet-stream")
+
+        assert response.status_code == 200
+        assert response.json()["page_count"] == 1
+
+    def test_rejects_corrupted_pdf_sent_as_raw_body(self, corrupted_pdf_bytes):
+        response = _send_raw(corrupted_pdf_bytes, "application/pdf")
+
+        assert response.status_code == 422
+        assert response.json()["detail"].startswith("No se pudo leer el archivo como PDF")
 
 
 class TestExtractErrors:
