@@ -68,3 +68,9 @@ class TestExtractErrors:
         response = _upload(corrupted_pdf_bytes)
 
         assert response.status_code == 422
+
+    def test_rejects_multipart_without_file_field(self, small_pdf_bytes):
+        response = client.post(EXTRACT_PATH, files={"otro": ("doc.pdf", small_pdf_bytes, "application/pdf")})
+
+        assert response.status_code == 422
+        assert response.json()["detail"].startswith("No se pudo leer el archivo como PDF")
