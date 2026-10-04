@@ -41,3 +41,10 @@ class ExtractionResponse(BaseModel):
 
     texto: str = Field(..., description="Texto completo extraído del PDF.")
     metadatos: ExtractionMetadata
+
+
+class ExtractContentResponse(BaseModel):
+    """Response DTO of POST /extract, with the exact fields the load-testing TP requires."""
+
+    content: str = Field(..., description="Contenido extraído del PDF.")
+    page_count: int = Field(..., ge=0, description="Cantidad de páginas del PDF.")
