@@ -1,6 +1,7 @@
 """Integration tests for the POST /extract endpoint required by the load-testing TP."""
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from app.main import app
 
 EXTRACT_PATH = "/extract"
@@ -17,6 +18,10 @@ def _upload(content: bytes):
 
 def _send_raw(content: bytes, content_type: str):
     return client.post(EXTRACT_PATH, content=content, headers={"Content-Type": content_type})
+
+
+def _one_byte_over_limit() -> bytes:
+    return b"0" * (get_settings().max_file_size_bytes + 1)
 
 
 class TestExtractSuccess:
@@ -68,6 +73,16 @@ class TestExtractErrors:
         response = _upload(corrupted_pdf_bytes)
 
         assert response.status_code == 422
+
+    def test_rejects_file_over_size_limit_sent_as_multipart(self):
+        response = _upload(_one_byte_over_limit())
+
+        assert response.status_code == 413
+
+    def test_rejects_file_over_size_limit_sent_as_raw_body(self):
+        response = _send_raw(_one_byte_over_limit(), "application/pdf")
+
+        assert response.status_code == 413
 
     def test_rejects_multipart_without_file_field(self, small_pdf_bytes):
         response = client.post(EXTRACT_PATH, files={"otro": ("doc.pdf", small_pdf_bytes, "application/pdf")})
