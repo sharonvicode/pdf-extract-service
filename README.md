@@ -123,8 +123,14 @@ Respuesta esperada:
 
 Contrato pedido por el TP de test de carga y stress. Usa el mismo servicio de extracción que `/api/v1/extraer`, pero devuelve solo el contenido y la cantidad de páginas:
 
+El PDF se puede enviar de dos formas:
+
 ```bash
+# Como campo "file" de un multipart/form-data
 curl -X POST http://localhost:8000/extract   -F "file=@/ruta/a/documento.pdf;type=application/pdf"
+
+# Como body binario directo
+curl -X POST http://localhost:8000/extract   -H "Content-Type: application/pdf"   --data-binary "@/ruta/a/documento.pdf"
 ```
 
 ```json

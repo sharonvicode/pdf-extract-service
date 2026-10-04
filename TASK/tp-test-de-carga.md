@@ -9,7 +9,8 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 
 ## Fase 1 — Contrato del TP
 - [x] `POST /extract` (multipart) → `200 {"content", "page_count"}`
-- [ ] Decidir si además se acepta el PDF como body binario directo
+- [x] Aceptar también el PDF como body binario directo
+- [ ] Test de regresión: multipart sin campo `file` → 422 (no 500)
 - [ ] Aplicar en `/extract` el límite de tamaño (413) que ya tiene `/api/v1/extraer`
 
 ## Fase 2 — Infraestructura
