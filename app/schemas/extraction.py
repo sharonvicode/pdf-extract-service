@@ -1,8 +1,7 @@
 """Pydantic DTOs for the extraction endpoint's input/output contract."""
 from pydantic import BaseModel, Field, field_validator
 
-from app.core.config import get_settings
-from app.exceptions import FileTooLargeError
+from app.services.file_size import ensure_within_size_limit
 
 
 class PDFUploadRequest(BaseModel):
@@ -19,9 +18,7 @@ class PDFUploadRequest(BaseModel):
     @field_validator("size_bytes")
     @classmethod
     def size_must_be_within_limits(cls, value: int) -> int:
-        max_bytes = get_settings().max_file_size_bytes
-        if value > max_bytes:
-            raise FileTooLargeError(value, max_bytes)
+        ensure_within_size_limit(value)
         return value
 
 
@@ -41,3 +38,10 @@ class ExtractionResponse(BaseModel):
 
     texto: str = Field(..., description="Texto completo extraído del PDF.")
     metadatos: ExtractionMetadata
+
+
+class ExtractContentResponse(BaseModel):
+    """Response DTO of POST /extract, with the exact fields the load-testing TP requires."""
+
+    content: str = Field(..., description="Contenido extraído del PDF.")
+    page_count: int = Field(..., ge=0, description="Cantidad de páginas del PDF.")

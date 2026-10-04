@@ -27,9 +27,12 @@ pdf-extract-service/
 │   │   ├── extraction.py             # DTOs Pydantic: entrada y salida
 │   │   └── problem_details.py        # Cuerpo de error RFC 9457
 │   ├── services/
+│   │   ├── file_size.py              # Regla del tamaño máximo (413), compartida
 │   │   └── pdf_extractor.py          # Lógica de negocio: extracción con pypdf
 │   └── api/
+│       ├── dependencies.py           # Proveedores de dependencias compartidos
 │       ├── error_handlers.py         # Traduce excepciones -> respuestas RFC 9457
+│       ├── extract.py                # POST /extract (contrato del TP de carga)
 │       └── v1/
 │           ├── router.py
 │           └── endpoints/
@@ -38,7 +41,8 @@ pdf-extract-service/
 │   ├── conftest.py                   # Fixtures: PDFs válidos generados en memoria
 │   ├── test_pdf_extractor_service.py # Tests unitarios de la lógica de negocio
 │   ├── test_schemas.py               # Tests del contrato de entrada
-│   ├── test_extraction_endpoint.py   # Tests de integración del endpoint HTTP
+│   ├── test_extraction_endpoint.py   # Tests de integración de POST /api/v1/extraer
+│   ├── test_extract_endpoint.py      # Tests de integración de POST /extract
 │   └── test_problem_details.py       # Tests del formato de errores RFC 9457
 ├── Dockerfile
 ├── docker-compose.yml
@@ -115,6 +119,29 @@ Respuesta esperada:
   }
 }
 ```
+
+### Endpoint del TP de test de carga: `POST /extract`
+
+Contrato pedido por el TP de test de carga y stress. Usa el mismo servicio de extracción que `/api/v1/extraer`, pero devuelve solo el contenido y la cantidad de páginas:
+
+El PDF se puede enviar de dos formas:
+
+```bash
+# Como campo "file" de un multipart/form-data
+curl -X POST http://localhost:8000/extract   -F "file=@/ruta/a/documento.pdf;type=application/pdf"
+
+# Como body binario directo
+curl -X POST http://localhost:8000/extract   -H "Content-Type: application/pdf"   --data-binary "@/ruta/a/documento.pdf"
+```
+
+```json
+{
+  "content": "contenido extraído del PDF...",
+  "page_count": 3
+}
+```
+
+Los errores son los mismos que los de `/api/v1/extraer` (ver abajo).
 
 ### Errores (RFC 9457)
 
