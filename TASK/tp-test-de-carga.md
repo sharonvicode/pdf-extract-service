@@ -11,7 +11,7 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] `POST /extract` (multipart) → `200 {"content", "page_count"}`
 - [x] Aceptar también el PDF como body binario directo
 - [x] Test de regresión: multipart sin campo `file` → 422 (no 500)
-- [ ] Aplicar en `/extract` el límite de tamaño (413) que ya tiene `/api/v1/extraer`
+- [x] Aplicar en `/extract` el límite de tamaño (413) que ya tiene `/api/v1/extraer`
 
 ## Fase 2 — Infraestructura
 - [ ] Reverse proxy (Traefik o Caddy) delante del Extractor

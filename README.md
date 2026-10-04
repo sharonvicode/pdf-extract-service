@@ -27,6 +27,7 @@ pdf-extract-service/
 │   │   ├── extraction.py             # DTOs Pydantic: entrada y salida
 │   │   └── problem_details.py        # Cuerpo de error RFC 9457
 │   ├── services/
+│   │   ├── file_size.py              # Regla del tamaño máximo (413), compartida
 │   │   └── pdf_extractor.py          # Lógica de negocio: extracción con pypdf
 │   └── api/
 │       ├── dependencies.py           # Proveedores de dependencias compartidos
@@ -140,7 +141,7 @@ curl -X POST http://localhost:8000/extract   -H "Content-Type: application/pdf" 
 }
 ```
 
-Los errores son los mismos que los de `/api/v1/extraer` (ver abajo), salvo el `413`: `/extract` todavía no aplica el límite de tamaño.
+Los errores son los mismos que los de `/api/v1/extraer` (ver abajo).
 
 ### Errores (RFC 9457)
 

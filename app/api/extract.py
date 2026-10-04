@@ -3,9 +3,8 @@ from fastapi import APIRouter, Depends, File, Request, UploadFile
 
 from app.api.dependencies import get_pdf_extractor_service
 from app.api.error_handlers import DOMAIN_ERROR_RESPONSES
-from app.core.config import get_settings
-from app.exceptions import FileTooLargeError
 from app.schemas.extraction import ExtractContentResponse
+from app.services.file_size import ensure_within_size_limit
 from app.services.pdf_extractor import PDFExtractorService
 
 router = APIRouter()
@@ -36,10 +35,7 @@ async def extract_content(
     service: PDFExtractorService = Depends(get_pdf_extractor_service),
 ) -> ExtractContentResponse:
     file_bytes = await read_pdf_bytes(request, file)
-
-    max_bytes = get_settings().max_file_size_bytes
-    if len(file_bytes) > max_bytes:
-        raise FileTooLargeError(len(file_bytes), max_bytes)
+    ensure_within_size_limit(len(file_bytes))
 
     result = await service.extract_text_async(file_bytes)
 
