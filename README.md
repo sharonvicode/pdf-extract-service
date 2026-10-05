@@ -208,13 +208,22 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
 
 ## Uso con Docker Compose
 
-1. (Opcional) Si querés cambiar algún valor por defecto, creá un `.env` a partir de `.env.example` y editalo. Sin `.env` el servicio usa los valores por defecto:
+El compose levanta el Extractor **escalado horizontalmente** detrás de un reverse proxy:
+
+```
+cliente ──► Traefik (:8000) ──► extractor réplica 1 … réplica 5 (:8000 interno)
+```
+
+- **Traefik** es el único servicio con puerto publicado. Descubre las réplicas a través de la API de Docker (por eso monta `/var/run/docker.sock` en solo lectura) y reparte los pedidos entre ellas. Solo envía tráfico a las réplicas cuyo healthcheck está sano.
+- **extractor** corre `EXTRACTOR_REPLICAS` réplicas (5 por defecto, el máximo que permite el TP), cada una limitada a **1 CPU y 512 MB** de RAM.
+
+1. (Opcional) Si querés cambiar algún valor por defecto, creá un `.env` a partir de `.env.example` y editalo. Sin `.env` se usan los valores por defecto:
 
    ```bash
    cp .env.example .env
    ```
 
-2. Levantar el servicio:
+2. Levantar todo:
 
    ```bash
    docker compose up --build
@@ -228,7 +237,13 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
    docker compose up -d --build
    ```
 
-5. Para detenerlo:
+5. Para ver las réplicas y su estado:
+
+   ```bash
+   docker compose ps
+   ```
+
+6. Para detenerlo:
 
    ```bash
    docker compose down

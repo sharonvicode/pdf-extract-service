@@ -1,12 +1,32 @@
 services:
+  # Reverse proxy: the only service reachable from outside. It discovers the
+  # extractor replicas through the Docker API and balances requests among them.
+  traefik:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --log.level=INFO
+    ports:
+      - "${PORT:-8000}:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      extractor:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
   extractor:
     build:
       context: .
       dockerfile: Dockerfile
     image: extractor-service:latest
-    container_name: extractor-service
-    ports:
-      - "${PORT:-8000}:8000"
     # Optional: without a .env file the service runs with the defaults from app/core/config.py.
     env_file:
       - path: .env
@@ -14,7 +34,18 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
       retries: 3
       start_period: 5s
+    deploy:
+      replicas: ${EXTRACTOR_REPLICAS:-5}
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.extractor.rule=PathPrefix(`/`)
+      - traefik.http.routers.extractor.entrypoints=web
+      - traefik.http.services.extractor.loadbalancer.server.port=8000

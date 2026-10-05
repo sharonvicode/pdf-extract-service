@@ -14,9 +14,9 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] Aplicar en `/extract` el límite de tamaño (413) que ya tiene `/api/v1/extraer`
 
 ## Fase 2 — Infraestructura
-- [ ] Reverse proxy (Traefik o Caddy) delante del Extractor
-- [ ] `deploy.replicas: 5` con límites explícitos de CPU y RAM por réplica
-- [ ] Todo levanta con `docker compose up --build`
+- [x] Reverse proxy (Traefik v3.6) delante del Extractor, con balanceo round robin
+- [x] `deploy.replicas: 5` con límites explícitos de CPU y RAM por réplica
+- [x] Todo levanta con `docker compose up --build`
 
 ## Fase 3 — Medición inicial ("antes")
 - [ ] Set propio de 4 PDFs en `tests/stress/pdfs` (liviano, mediano, largo, ~9 MB con gráficos)
