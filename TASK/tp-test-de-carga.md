@@ -19,7 +19,7 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] Todo levanta con `docker compose up --build`
 
 ## Fase 3 — Medición inicial ("antes")
-- [ ] Set propio de 4 PDFs en `tests/stress/pdfs` (liviano, mediano, largo, ~9 MB con gráficos)
+- [x] Set propio de 4 PDFs en `tests/stress/pdfs` (liviano, mediano, largo, ~9 MB con gráficos), generados con `tests/stress/generate_pdfs.py`
 - [ ] Script k6 (spike) en `tests/stress/`
 - [ ] Script Vegeta (50 req/s × 30 s) en `tests/stress/`
 - [ ] Resultados con pypdf registrados
