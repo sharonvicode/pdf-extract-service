@@ -20,9 +20,9 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 
 ## Fase 3 — Medición inicial ("antes")
 - [x] Set propio de 4 PDFs en `tests/stress/pdfs` (liviano, mediano, largo, ~9 MB con gráficos), generados con `tests/stress/generate_pdfs.py`
-- [ ] Script k6 (spike) en `tests/stress/`
+- [x] Script k6 (spike) en `tests/stress/k6-spike.js`, corrido con la imagen `grafana/k6`
 - [ ] Script Vegeta (50 req/s × 30 s) en `tests/stress/`
-- [ ] Resultados con pypdf registrados
+- [ ] Resultados con pypdf registrados (k6 hecho: `tests/stress/results/k6-spike-pypdf-5-replicas.txt`; falta Vegeta)
 
 ## Fase 4 — Optimización (medir después de cada cambio)
 - [ ] Migrar a PyMuPDF + pymupdf4llm (`content` en Markdown)
