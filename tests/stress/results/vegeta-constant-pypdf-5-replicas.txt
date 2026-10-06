@@ -1,0 +1,12 @@
+Requests      [total, rate, throughput]         1500, 50.03, 2.60
+Duration      [total, attack, wait]             59.981s, 29.98s, 30.002s
+Latencies     [min, mean, 50, 90, 95, 99, max]  35.724ms, 27.77s, 30.001s, 30.01s, 30.02s, 30.059s, 30.221s
+Bytes In      [total, mean]                     8223476, 5482.32
+Bytes Out     [total, mean]                     65685864, 43790.58
+Success       [ratio]                           10.40%
+Status Codes  [code:count]                      0:1328  200:156  500:1  502:15  
+Error Set:
+Post "http://host.docker.internal:8000/extract": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+502 Bad Gateway
+context deadline exceeded (Client.Timeout or context cancellation while reading body)
+500 Internal Server Error
