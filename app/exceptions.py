@@ -27,3 +27,10 @@ class InvalidPDFError(ExtractionError):
 
 class NoExtractableTextError(ExtractionError):
     """Raised when a readable PDF contains no text (e.g. blank or scanned pages)."""
+
+
+class ServiceBusyError(ExtractionError):
+    """Raised when every extraction slot and every waiting place is taken."""
+
+    def __init__(self) -> None:
+        super().__init__("El servicio está saturado. Reintentá en unos segundos.")
