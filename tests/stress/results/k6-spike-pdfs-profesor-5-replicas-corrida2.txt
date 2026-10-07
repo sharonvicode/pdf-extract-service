@@ -1,0 +1,32 @@
+time="2026-10-07T23:48:22Z" level=warning msg="Request Failed" error="Post \"http://host.docker.internal:8000/extract\": request timeout"
+time="2026-10-07T23:48:22Z" level=warning msg="Request Failed" error="Post \"http://host.docker.internal:8000/extract\": request timeout"
+time="2026-10-07T23:48:22Z" level=warning msg="Request Failed" error="request timeout"
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 107    1.531811/s
+    checks_succeeded...: 96.26% 103 out of 107
+    checks_failed......: 3.73%  4 out of 107
+
+    ✗ status 200
+      ↳  96% — ✓ 103 / ✗ 4
+
+    HTTP
+    http_req_duration..............: avg=8.79s  min=0s      med=5.92s  p(90)=23.85s p(95)=29.03s max=59.89s
+      { expected_response:true }...: avg=8.55s  min=50.2ms  med=6.06s  p(90)=23.04s p(95)=28.5s  max=35.76s
+    http_req_failed................: 3.73%  4 out of 107
+    http_reqs......................: 107    1.531811/s
+
+    EXECUTION
+    iteration_duration.............: avg=13.23s min=59.05ms med=10.95s p(90)=32s    p(95)=36.06s max=1m3s  
+    iterations.....................: 107    1.531811/s
+    vus............................: 1      min=1        max=100
+    vus_max........................: 100    min=100      max=100
+
+    NETWORK
+    data_received..................: 7.2 MB 104 kB/s
+    data_sent......................: 369 MB 5.3 MB/s
+
+
+

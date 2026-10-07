@@ -33,6 +33,12 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [ ] Cliente que se desconecta (`ClientDisconnect`): no loguearlo como error inesperado ni seguir procesando
 - [ ] Ajuste de workers por réplica
 
+## Extra — PDFs oficiales de la cátedra
+- [x] Los 4 PDFs del profesor en `tests/stress/pdfs` (set por defecto); los sintéticos pasan a `tests/stress/pdfs-sinteticos`
+- [x] Scripts con `PDF_SET` (`profesor` o `sinteticos`)
+- [x] Medido con los PDFs oficiales (2 corridas): k6 2.92 / 1.53 req/s (98.9% / 96.3%); Vegeta 11.93 / 7.34 req/s (47.7% / 29.3%). La variación sale de la RAM libre del equipo (577 MB en la 2ª)
+- [x] Los 4 PDFs oficiales responden 200 (41–147 ms cada uno) y entran en el límite de 10 MB
+
 ## Fase 5 — Informe
 - [ ] Arquitectura y decisiones de diseño
 - [ ] Cuello de botella identificado

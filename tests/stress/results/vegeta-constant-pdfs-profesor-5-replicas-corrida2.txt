@@ -1,0 +1,11 @@
+Requests      [total, rate, throughput]         1500, 50.03, 7.34
+Duration      [total, attack, wait]             59.945s, 29.981s, 29.964s
+Latencies     [min, mean, 50, 90, 95, 99, max]  181.689ms, 23.585s, 30s, 30.002s, 30.003s, 30.011s, 30.063s
+Bytes In      [total, mean]                     22935019, 15290.01
+Bytes Out     [total, mean]                     372891990, 248594.66
+Success       [ratio]                           29.33%
+Status Codes  [code:count]                      0:821  200:440  503:239  
+Error Set:
+503 Service Unavailable
+Post "http://host.docker.internal:8000/extract": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+context deadline exceeded (Client.Timeout or context cancellation while reading body)
