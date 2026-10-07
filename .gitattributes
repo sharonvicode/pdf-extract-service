@@ -1,0 +1,5 @@
+# PDFs are binary: converting their line endings breaks the xref offsets inside them.
+*.pdf binary
+
+# Shell scripts run inside Linux containers: a CRLF checkout breaks them ("set: illegal option -").
+*.sh text eol=lf
