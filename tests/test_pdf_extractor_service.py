@@ -7,6 +7,7 @@ import pytest
 
 from app.exceptions import InvalidPDFError, NoExtractableTextError
 from app.services.pdf_extractor import ExtractionResult, PDFExtractorService
+from tests.conftest import FIRST_PARAGRAPH, SECOND_PARAGRAPH, TITLE
 
 
 @pytest.fixture
@@ -52,6 +53,26 @@ class TestExtractTextSync:
     def test_raises_no_extractable_text_error_for_pdf_without_text(self, service, blank_pdf_bytes):
         with pytest.raises(NoExtractableTextError):
             service.extract_text(blank_pdf_bytes)
+
+
+class TestMarkdownOutput:
+    """The TP requires the extracted content in Markdown."""
+
+    def test_marks_large_font_line_as_heading(self, service, titled_pdf_bytes):
+        result = service.extract_text(titled_pdf_bytes)
+
+        assert result.text.startswith(f"# {TITLE}\n")
+
+    def test_does_not_mark_body_text_as_heading(self, service, titled_pdf_bytes):
+        lines = service.extract_text(titled_pdf_bytes).text.splitlines()
+
+        assert FIRST_PARAGRAPH in lines
+        assert SECOND_PARAGRAPH in lines
+
+    def test_separates_paragraphs_with_a_blank_line(self, service, titled_pdf_bytes):
+        result = service.extract_text(titled_pdf_bytes)
+
+        assert f"{TITLE}\n\n{FIRST_PARAGRAPH}\n\n{SECOND_PARAGRAPH}" in result.text
 
 
 class TestExtractTextAsync:

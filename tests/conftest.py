@@ -11,13 +11,16 @@ from pypdf import PdfReader, PdfWriter
 
 
 def _build_single_page_pdf_bytes(text: str) -> bytes:
-    """Return a minimal, valid single-page PDF containing ``text``.
+    """Return a minimal, valid single-page PDF containing ``text``."""
+    return _build_pdf_bytes_from_content(f"BT /F1 24 Tf 72 700 Td ({text}) Tj ET".encode())
+
+
+def _build_pdf_bytes_from_content(content_stream: bytes) -> bytes:
+    """Return a valid single-page PDF that draws ``content_stream`` with Helvetica as /F1.
 
     Built with a correctly computed xref table (rather than relying on
-    pypdf's lenient recovery parser) so tests run without warning noise.
+    the parser's lenient recovery) so tests run without warning noise.
     """
-    content_stream = f"BT /F1 24 Tf 72 700 Td ({text}) Tj ET".encode()
-
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -88,6 +91,22 @@ def medium_pdf_bytes(make_pdf_bytes) -> bytes:
 def large_pdf_bytes(make_pdf_bytes) -> bytes:
     """A 100-page PDF, representing a large document."""
     return make_pdf_bytes(page_count=100)
+
+
+TITLE = "Informe de pruebas"
+FIRST_PARAGRAPH = "El servicio extrae el contenido de cada PDF que recibe."
+SECOND_PARAGRAPH = "Las replicas reparten la carga entre ellas."
+
+
+@pytest.fixture
+def titled_pdf_bytes() -> bytes:
+    """A 1-page PDF with a large-font title followed by two body paragraphs far apart."""
+    content_stream = (
+        f"BT /F1 24 Tf 72 740 Td ({TITLE}) Tj ET\n"
+        f"BT /F1 11 Tf 72 660 Td ({FIRST_PARAGRAPH}) Tj ET\n"
+        f"BT /F1 11 Tf 72 560 Td ({SECOND_PARAGRAPH}) Tj ET"
+    ).encode()
+    return _build_pdf_bytes_from_content(content_stream)
 
 
 @pytest.fixture
