@@ -4,18 +4,34 @@
 // Usage (from the repo root, with the service running):
 //   docker run --rm -v "$PWD/tests/stress:/scripts" -e BASE_URL=http://host.docker.internal:8000 \
 //     grafana/k6 run /scripts/k6-spike.js
+// PDF_SET picks the documents: "profesor" (default, the TP's official set) or "sinteticos".
 import http from "k6/http";
 import { check } from "k6";
 import exec from "k6/execution";
 import { open, SeekMode } from "k6/experimental/fs";
 
 const BASE_URL = __ENV.BASE_URL || "http://localhost:8000";
-const PDF_NAMES = ["liviano.pdf", "mediano.pdf", "largo.pdf", "pesado.pdf"];
+const PDF_SETS = {
+  profesor: {
+    dir: "./pdfs",
+    names: [
+      "2020-Scrum-Guide-Spanish-Latin-South-American.pdf",
+      "Essential-Kanban-Condensed-Spanish.pdf",
+      "Filosofia Lean.pdf",
+      "scrum_manager_historias_usuario.pdf",
+    ],
+  },
+  sinteticos: {
+    dir: "./pdfs-sinteticos",
+    names: ["largo.pdf", "liviano.pdf", "mediano.pdf", "pesado.pdf"],
+  },
+};
+const PDF_SET = PDF_SETS[__ENV.PDF_SET || "profesor"];
 
 // k6/experimental/fs keeps one copy of each file shared by all VUs. The classic
-// open() would load a copy per VU: 100 VUs x 10.5 MB of PDFs = ~1 GB of RAM.
+// open() would load a copy per VU: 100 VUs x 13.7 MB of PDFs = ~1.4 GB of RAM.
 const pdfs = await Promise.all(
-  PDF_NAMES.map(async (name) => ({ name, file: await open(`./pdfs/${name}`) })),
+  PDF_SET.names.map(async (name) => ({ name, file: await open(`${PDF_SET.dir}/${name}`) })),
 );
 
 export const options = {

@@ -51,8 +51,9 @@ pdf-extract-service/
 │   ├── test_concurrency_limiter.py   # Tests del limitador de concurrencia
 │   ├── test_dependencies.py          # Tests de cómo los endpoints obtienen el servicio
 │   └── stress/                       # Pruebas de carga del TP (k6 y Vegeta)
-│       ├── generate_pdfs.py          # Genera los 4 PDFs de prueba
-│       ├── pdfs/                     # liviano, mediano, largo y pesado
+│       ├── generate_pdfs.py          # Genera los 4 PDFs sintéticos
+│       ├── pdfs/                     # Los 4 PDFs oficiales de la cátedra
+│       ├── pdfs-sinteticos/          # liviano, mediano, largo y pesado
 │       ├── k6-spike.js               # Spike: 0 → 100 VUs
 │       ├── vegeta-constant.sh        # Carga fija: 50 req/s durante 30 s
 │       └── results/                  # Salidas de cada medición
@@ -301,11 +302,22 @@ Los scripts en `tests/stress/` reproducen las dos pruebas con las que la cátedr
 | Spike (modelo cerrado) | `k6-spike.js` | 0 → 100 VUs en 10 s, 20 s a 100 VUs, 100 → 0 en 10 s | multipart (`file`) |
 | Carga fija (modelo abierto) | `vegeta-constant.sh` | 50 req/s durante 30 s (1.500 pedidos), timeout 30 s | body binario |
 
-Las dos pruebas rotan en orden los 4 PDFs de `tests/stress/pdfs/`, así cada corrida manda la misma mezcla.
+Las dos pruebas rotan en orden los PDFs del set elegido, así cada corrida manda la misma mezcla.
 
 ### PDFs de prueba
 
-Se generan con un script en lugar de usar documentos reales: el set es reproducible (semilla fija, mismos archivos byte a byte) y no tiene problemas de derechos de autor.
+Hay dos sets. La variable `PDF_SET` elige cuál usan los scripts.
+
+**`profesor` (por defecto): `tests/stress/pdfs/`.** Los 4 documentos oficiales que entregó la cátedra; es la carpeta que nombra el TP.
+
+| PDF | Páginas | Tamaño | Extracción (1, en reposo) |
+|-----|---------|--------|---------------------------|
+| `2020-Scrum-Guide-Spanish-Latin-South-American.pdf` | 16 | 0.30 MB | 41 ms |
+| `Essential-Kanban-Condensed-Spanish.pdf` | 90 | 8.49 MB | 147 ms |
+| `Filosofia Lean.pdf` | 42 | 0.64 MB | 93 ms |
+| `scrum_manager_historias_usuario.pdf` | 62 | 3.65 MB | 80 ms |
+
+**`sinteticos`: `tests/stress/pdfs-sinteticos/`.** Generados por `tests/stress/generate_pdfs.py` (semilla fija, mismos archivos byte a byte en cada corrida). Se usaron para la línea de base y las primeras optimizaciones, antes de tener los documentos oficiales. Son más exigentes para la CPU por `largo.pdf`.
 
 | PDF | Páginas | Tamaño | Qué estresa |
 |-----|---------|--------|-------------|
@@ -324,19 +336,29 @@ No hace falta instalar k6 ni Vegeta: corren en contenedores. Con el servicio lev
 
 ```bash
 # Spike con k6 (imagen oficial grafana/k6)
-docker run --rm -v "$PWD/tests/stress:/scripts"   -e BASE_URL=http://host.docker.internal:8000   grafana/k6 run /scripts/k6-spike.js
+docker run --rm -v "$PWD/tests/stress:/scripts" \
+  -e BASE_URL=http://host.docker.internal:8000 \
+  grafana/k6 run /scripts/k6-spike.js
 
 # Carga fija con Vegeta (imagen de la comunidad peterevans/vegeta)
-docker run --rm -v "$PWD/tests/stress:/scripts"   -e BASE_URL=http://host.docker.internal:8000   --entrypoint sh peterevans/vegeta /scripts/vegeta-constant.sh
+docker run --rm -v "$PWD/tests/stress:/scripts" \
+  -e BASE_URL=http://host.docker.internal:8000 \
+  --entrypoint sh peterevans/vegeta /scripts/vegeta-constant.sh
 ```
 
 En Git Bash (Windows) hay que anteponer `MSYS_NO_PATHCONV=1` y usar `$(pwd -W)` en lugar de `$PWD`, para que no se reescriban las rutas del contenedor.
 
 - `BASE_URL` apunta al servicio. `host.docker.internal` es la máquina anfitriona vista desde el contenedor.
+- `PDF_SET=sinteticos` (agregado con `-e`) corre las pruebas con los PDFs generados.
 - El script de Vegeta acepta además `RATE`, `DURATION` y `TIMEOUT` (por defecto, `50`, `30s` y `30s`).
-- El script de k6 comparte una sola copia de los PDFs entre los 100 VUs (`k6/experimental/fs`). Con el `open()` clásico cada VU tendría su propia copia: unos 1 GB de RAM.
+- El script de k6 comparte una sola copia de los PDFs entre los 100 VUs (`k6/experimental/fs`). Con el `open()` clásico cada VU tendría su propia copia: unos 1.4 GB de RAM.
+- Correr un proyecto por vez (`docker compose down` entre uno y otro): si hay otro proyecto con labels de Traefik corriendo en el mismo Docker, los proxies se mezclan las réplicas.
 
-Las salidas de cada medición se guardan en `tests/stress/results/`, nombradas por prueba, motor de extracción y cantidad de réplicas.
+Las salidas de cada medición se guardan en `tests/stress/results/`, nombradas por prueba, set de PDFs o motor de extracción, y cantidad de réplicas.
+
+### Condiciones de medición
+
+Los resultados de `tests/stress/results/` se midieron en una notebook con un i5-1135G7 (4 núcleos físicos, 8 hilos) y 7.6 GB de RAM, con Docker Desktop limitado a 3.9 GB y el generador de carga en la misma máquina. Con los PDFs oficiales, k6 llega a usar más de 5 hilos solo para generar la carga, y dos corridas iguales variaron hasta un 40% según la memoria libre del equipo. En una máquina con más núcleos y memoria los números deberían ser mejores.
 
 ## Stack técnico
 

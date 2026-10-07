@@ -1,8 +1,9 @@
-"""Generate the PDF set used by the load tests (tests/stress/pdfs).
+"""Generate the synthetic PDF set for the load tests (tests/stress/pdfs-sinteticos).
 
 The TP asks for PDFs of varying size and density, from light documents up to
 ~9 MB with graphics. They are generated instead of taken from real documents so
-the set is reproducible and free of copyright issues.
+the set is reproducible and free of copyright issues. The professor's official
+documents live in tests/stress/pdfs and are the default set of the scripts.
 
 Usage (from the repo root):
     uv run python tests/stress/generate_pdfs.py
@@ -11,7 +12,7 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 
-OUTPUT_DIR = Path(__file__).parent / "pdfs"
+OUTPUT_DIR = Path(__file__).parent / "pdfs-sinteticos"
 
 PAGE_WIDTH, PAGE_HEIGHT = 595, 842  # A4 in points
 LINES_PER_PAGE = 45
