@@ -1,14 +1,14 @@
 [project]
 name = "pdf-extract-service"
 version = "0.1.0"
-description = "Extractor: microservicio que extrae el texto de archivos PDF con pypdf"
+description = "Extractor: microservicio que extrae el contenido de archivos PDF en Markdown con PyMuPDF"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.141.1",
     "pydantic==2.13.5",
     "pydantic-settings==2.15.0",
-    "pypdf==6.19.0",
+    "pymupdf==1.28.2",
     "python-multipart==0.0.32",
     "uvicorn[standard]==0.53.0",
 ]

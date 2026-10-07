@@ -25,7 +25,8 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] Resultados con pypdf registrados en `tests/stress/results/` (k6: 2.43 req/s, 94.4% éxito; Vegeta: 2.60 req/s, 10.4% éxito)
 
 ## Fase 4 — Optimización (medir después de cada cambio)
-- [ ] Migrar a PyMuPDF + pymupdf4llm (`content` en Markdown)
+- [x] Migrar a PyMuPDF con Markdown propio (títulos y párrafos). `pymupdf4llm` descartado: medido, 10 a 70 veces más lento que pypdf
+- [x] Medir PyMuPDF con k6 y Vegeta (k6: 3.06 req/s, 100% éxito; Vegeta: 5.46 req/s, 21.9% éxito). Con 5 VUs fijos rinde 6.22 req/s: la concurrencia dentro de cada réplica es el nuevo cuello de botella
 - [ ] Backpressure: límite de concurrencia y 503 + `Retry-After`
 - [ ] Cliente que se desconecta (`ClientDisconnect`): no loguearlo como error inesperado ni seguir procesando
 - [ ] Ajuste de workers por réplica

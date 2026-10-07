@@ -1,0 +1,12 @@
+Requests      [total, rate, throughput]         1500, 50.03, 5.46
+Duration      [total, attack, wait]             1m0s, 29.98s, 30.109s
+Latencies     [min, mean, 50, 90, 95, 99, max]  18.215ms, 23.924s, 30.001s, 30.034s, 30.072s, 30.183s, 30.544s
+Bytes In      [total, mean]                     22935170, 15290.11
+Bytes Out     [total, mean]                     65613346, 43742.23
+Success       [ratio]                           21.87%
+Status Codes  [code:count]                      0:1164  200:328  502:8  
+Error Set:
+Post "http://host.docker.internal:8000/extract": dial tcp 0.0.0.0:0->192.168.65.254:8000: connect: connection refused
+502 Bad Gateway
+context deadline exceeded (Client.Timeout or context cancellation while reading body)
+Post "http://host.docker.internal:8000/extract": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
