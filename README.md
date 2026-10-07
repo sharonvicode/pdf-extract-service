@@ -231,7 +231,7 @@ cliente ──► Traefik (:8000) ──► extractor réplica 1 … réplica 5 
 ```
 
 - **Traefik** es el único servicio con puerto publicado. Descubre las réplicas a través de la API de Docker (por eso monta `/var/run/docker.sock` en solo lectura) y reparte los pedidos entre ellas. Solo envía tráfico a las réplicas cuyo healthcheck está sano.
-- **extractor** corre `EXTRACTOR_REPLICAS` réplicas (5 por defecto, el máximo que permite el TP), cada una limitada a **1 CPU y 512 MB** de RAM.
+- **extractor** corre `EXTRACTOR_REPLICAS` réplicas (5 por defecto, el máximo que permite el TP), cada una limitada a **1 CPU y 512 MB** de RAM. Traefik también tiene 1 CPU y 512 MB: bajo la prueba de Vegeta llegó a usar unos 210 MB.
 
 1. (Opcional) Si querés cambiar algún valor por defecto, creá un `.env` a partir de `.env.example` y editalo. Sin `.env` se usan los valores por defecto:
 

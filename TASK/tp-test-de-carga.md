@@ -28,7 +28,8 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] Migrar a PyMuPDF con Markdown propio (títulos y párrafos). `pymupdf4llm` descartado: medido, 10 a 70 veces más lento que pypdf
 - [x] Medir PyMuPDF con k6 y Vegeta (k6: 3.06 req/s, 100% éxito; Vegeta: 5.46 req/s, 21.9% éxito). Con 5 VUs fijos rinde 6.22 req/s: la concurrencia dentro de cada réplica es el nuevo cuello de botella
 - [x] Backpressure: límite de concurrencia y 503 + `Retry-After` (`EXTRACTION_CONCURRENCY`, `EXTRACTION_QUEUE_SIZE`, `RETRY_AFTER_SECONDS`)
-- [ ] Medir backpressure con k6 y Vegeta y ajustar concurrencia y cola
+- [x] Medir backpressure con k6 y Vegeta y ajustar concurrencia y cola. Cola 20: k6 3.50 req/s, 98.3% éxito; Vegeta 7.97 req/s, 31.9% éxito, p50 14.7 s. Cola 5: peor en ambas (k6 67.8%, Vegeta 27.4%), se queda 20
+- [x] Subir el límite de memoria de Traefik de 256 a 512 MB (usaba ~210 MB bajo Vegeta)
 - [ ] Cliente que se desconecta (`ClientDisconnect`): no loguearlo como error inesperado ni seguir procesando
 - [ ] Ajuste de workers por réplica
 
