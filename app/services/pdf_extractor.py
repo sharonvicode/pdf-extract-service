@@ -6,14 +6,12 @@ reusable outside of an HTTP context.
 """
 import asyncio
 import time
-from collections import Counter
 from dataclasses import dataclass
 
 import pymupdf
 
 from app.exceptions import InvalidPDFError, NoExtractableTextError
-
-HEADING_SIZE_RATIO = 1.2
+from app.services.markdown_renderer import Block, render_markdown
 
 
 @dataclass(frozen=True)
@@ -44,37 +42,9 @@ class PDFExtractorService:
 
         with document:
             page_count = document.page_count
-            try:
-                blocks = [
-                    block
-                    for page in document
-                    for block in page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)["blocks"]
-                ]
-            except Exception as exc:  # MuPDF can raise various low-level errors
-                raise InvalidPDFError(f"No se pudo extraer el texto del PDF: {exc}") from exc
+            blocks = self._read_text_blocks(document)
 
-        lines = [line for block in blocks for line in block["lines"]]
-        sizes = Counter()
-        for line in lines:
-            for span in line["spans"]:
-                sizes[round(span["size"])] += len(span["text"])
-        body_size = sizes.most_common(1)[0][0] if sizes else 0
-
-        paragraphs = []
-        for block in blocks:
-            rendered = []
-            for line in block["lines"]:
-                line_text = "".join(span["text"] for span in line["spans"]).strip()
-                if not line_text:
-                    continue
-                line_size = max(span["size"] for span in line["spans"])
-                if line_size >= body_size * HEADING_SIZE_RATIO:
-                    line_text = f"# {line_text}"
-                rendered.append(line_text)
-            if rendered:
-                paragraphs.append("\n".join(rendered))
-
-        text = "\n\n".join(paragraphs).strip()
+        text = render_markdown(blocks).strip()
         if not text:
             raise NoExtractableTextError("El PDF no tiene texto extraíble.")
 
@@ -92,3 +62,15 @@ class PDFExtractorService:
         Keeps the FastAPI event loop free while PyMuPDF does its work.
         """
         return await asyncio.to_thread(self.extract_text, file_bytes)
+
+    @staticmethod
+    def _read_text_blocks(document: pymupdf.Document) -> list[Block]:
+        """Return the text blocks of every page, with the font size of each span."""
+        try:
+            return [
+                block
+                for page in document
+                for block in page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)["blocks"]
+            ]
+        except Exception as exc:  # MuPDF can raise various low-level errors
+            raise InvalidPDFError(f"No se pudo extraer el texto del PDF: {exc}") from exc

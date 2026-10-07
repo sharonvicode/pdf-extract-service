@@ -4,10 +4,8 @@ Generating PDFs in-memory (rather than committing binary fixture files)
 keeps the "different sizes" test matrix easy to extend and avoids binary
 diffs in version control.
 """
-from io import BytesIO
-
+import pymupdf
 import pytest
-from pypdf import PdfReader, PdfWriter
 
 
 def _build_single_page_pdf_bytes(text: str) -> bytes:
@@ -54,15 +52,13 @@ def _build_pdf_bytes_from_content(content_stream: bytes) -> bytes:
 
 
 def _build_multi_page_pdf_bytes(page_count: int, text_prefix: str = "Page") -> bytes:
-    """Concatenate ``page_count`` single-page PDFs into one document via pypdf."""
-    writer = PdfWriter()
-    for page_number in range(1, page_count + 1):
-        single_page = PdfReader(BytesIO(_build_single_page_pdf_bytes(f"{text_prefix} {page_number}")))
-        writer.add_page(single_page.pages[0])
-
-    buffer = BytesIO()
-    writer.write(buffer)
-    return buffer.getvalue()
+    """Concatenate ``page_count`` single-page PDFs into one document via PyMuPDF."""
+    with pymupdf.open() as document:
+        for page_number in range(1, page_count + 1):
+            single_page_bytes = _build_single_page_pdf_bytes(f"{text_prefix} {page_number}")
+            with pymupdf.open(stream=single_page_bytes, filetype="pdf") as single_page:
+                document.insert_pdf(single_page)
+        return document.tobytes()
 
 
 @pytest.fixture
@@ -112,11 +108,9 @@ def titled_pdf_bytes() -> bytes:
 @pytest.fixture
 def blank_pdf_bytes() -> bytes:
     """A valid 1-page PDF with no text at all (e.g. a blank or scanned page)."""
-    writer = PdfWriter()
-    writer.add_blank_page(width=612, height=792)
-    buffer = BytesIO()
-    writer.write(buffer)
-    return buffer.getvalue()
+    with pymupdf.open() as document:
+        document.new_page(width=612, height=792)
+        return document.tobytes()
 
 
 @pytest.fixture

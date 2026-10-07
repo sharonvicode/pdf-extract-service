@@ -1,13 +1,14 @@
 # Extractor Service
 
-Microservicio independiente para **extracción de texto desde archivos PDF**, construido con FastAPI y [`pypdf`](https://pypi.org/project/pypdf/).
+Microservicio independiente para **extraer el contenido de archivos PDF en Markdown**, construido con FastAPI y [PyMuPDF](https://pypi.org/project/PyMuPDF/).
 
 Forma parte de una arquitectura de microservicios más amplia: es un servicio aislado, sin dependencias de otros servicios, que expone una API RESTful asíncrona para recibir un PDF y devolver su texto junto con metadatos de la extracción (páginas, tamaño, tiempo de procesamiento).
 
 ## Características
 
 - API asíncrona con **FastAPI**.
-- Extracción de texto con **pypdf**, corrida en un thread aparte para no bloquear el event loop.
+- Extracción con **PyMuPDF** (motor MuPDF, escrito en C), corrida en un thread aparte para no bloquear el event loop.
+- El contenido sale en **Markdown**: las líneas con letra al menos 1.2 veces más grande que el cuerpo del documento son títulos (`# `) y cada bloque de texto es un párrafo. Es un Markdown mínimo a propósito: `pymupdf4llm` da un Markdown más completo pero, medido con los PDFs de carga, es entre 10 y 70 veces más lento que pypdf.
 - Contratos de entrada/salida tipados con **Pydantic**. El Extractor solo limita el tamaño máximo (protección propia); validar el tipo de archivo o si está vacío es responsabilidad del **Validator**.
 - Arquitectura en capas: endpoints HTTP, lógica de negocio y esquemas están desacoplados entre sí (principios SOLID/KISS/DRY/YAGNI).
 - Suite de tests con **pytest**, desarrollada bajo un enfoque TDD, con PDFs generados en memoria de distintos tamaños (1, 10 y 100 páginas).
@@ -28,7 +29,8 @@ pdf-extract-service/
 │   │   └── problem_details.py        # Cuerpo de error RFC 9457
 │   ├── services/
 │   │   ├── file_size.py              # Regla del tamaño máximo (413), compartida
-│   │   └── pdf_extractor.py          # Lógica de negocio: extracción con pypdf
+│   │   ├── markdown_renderer.py      # Arma el Markdown (títulos y párrafos)
+│   │   └── pdf_extractor.py          # Lógica de negocio: extracción con PyMuPDF
 │   └── api/
 │       ├── dependencies.py           # Proveedores de dependencias compartidos
 │       ├── error_handlers.py         # Traduce excepciones -> respuestas RFC 9457
@@ -265,7 +267,7 @@ El contenedor corre como usuario no-root, expone el puerto `8000` y define un `H
 |---------------------|-------------------------|
 | Framework web        | FastAPI                |
 | Servidor ASGI         | Uvicorn                |
-| Extracción de PDF     | pypdf                  |
+| Extracción de PDF     | PyMuPDF (AGPL)         |
 | Validación de datos   | Pydantic / pydantic-settings |
 | Testing                | pytest, pytest-asyncio, httpx2 |
 | Dependencias           | uv                     |
