@@ -20,7 +20,7 @@ services:
       resources:
         limits:
           cpus: "1.0"
-          memory: 256M
+          memory: 512M  # under Vegeta it reached ~210 MB; 256 MB left too little margin
 
   extractor:
     build:

@@ -2,6 +2,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,10 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
 
     max_file_size_mb: int = 10
+
+    extraction_concurrency: int = Field(1, ge=1)
+    extraction_queue_size: int = 20
+    retry_after_seconds: int = 1
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 

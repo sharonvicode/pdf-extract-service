@@ -18,6 +18,19 @@ class TestSettings:
 
         assert settings.max_file_size_mb == 5
 
+    def test_backpressure_defaults(self):
+        settings = Settings(_env_file=None)
+
+        assert settings.extraction_concurrency == 1
+        assert settings.extraction_queue_size == 20
+        assert settings.retry_after_seconds == 1
+
+    def test_rejects_zero_extraction_concurrency(self, monkeypatch):
+        monkeypatch.setenv("EXTRACTION_CONCURRENCY", "0")
+
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+
     def test_rejects_invalid_log_level(self, monkeypatch):
         monkeypatch.setenv("LOG_LEVEL", "VERBOSE")
 

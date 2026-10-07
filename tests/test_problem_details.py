@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_pdf_extractor_service
 from app.core.config import get_settings
+from app.exceptions import ServiceBusyError
 from app.main import app
 
 PROBLEM_JSON = "application/problem+json"
@@ -91,6 +92,25 @@ class TestUnexpectedErrors:
             failing_client.post(EXTRACT_PATH, files={"file": ("doc.pdf", small_pdf_bytes, "application/pdf")})
 
         assert "internal secret" in caplog.text
+
+
+class TestServiceBusyIsProblemDetails:
+    @pytest.fixture
+    def busy_client(self):
+        class _BusyService:
+            async def extract_text_async(self, _: bytes):
+                raise ServiceBusyError()
+
+        app.dependency_overrides[get_pdf_extractor_service] = _BusyService
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    @pytest.mark.parametrize("path", ["/extract", EXTRACT_PATH])
+    def test_returns_503_with_retry_after(self, busy_client, small_pdf_bytes, path):
+        response = busy_client.post(path, files={"file": ("doc.pdf", small_pdf_bytes, "application/pdf")})
+
+        _assert_is_problem(response, 503, "Servicio no disponible", path)
+        assert response.headers["Retry-After"] == str(get_settings().retry_after_seconds)
 
 
 class TestOpenAPIDocumentsErrors:

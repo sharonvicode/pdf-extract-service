@@ -12,11 +12,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.config import get_settings
 from app.exceptions import (
     ExtractionError,
     FileTooLargeError,
     InvalidPDFError,
     NoExtractableTextError,
+    ServiceBusyError,
 )
 from app.schemas.problem_details import PROBLEM_JSON_MEDIA_TYPE, ProblemDetails
 
@@ -26,6 +28,7 @@ STATUS_BY_EXCEPTION: dict[type[ExtractionError], int] = {
     FileTooLargeError: status.HTTP_413_CONTENT_TOO_LARGE,
     InvalidPDFError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     NoExtractableTextError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ServiceBusyError: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
 UNEXPECTED_ERROR_DETAIL = "Ocurrió un error inesperado."
@@ -37,6 +40,7 @@ _TITLES = {
     status.HTTP_413_CONTENT_TOO_LARGE: "Contenido demasiado grande",
     status.HTTP_422_UNPROCESSABLE_CONTENT: "Contenido no procesable",
     status.HTTP_500_INTERNAL_SERVER_ERROR: "Error interno del servidor",
+    status.HTTP_503_SERVICE_UNAVAILABLE: "Servicio no disponible",
 }
 
 _HTTP_ERROR_DETAILS = {
@@ -82,8 +86,15 @@ def problem_response(
     )
 
 
+def _headers_for(exc: ExtractionError) -> dict[str, str] | None:
+    """Extra HTTP headers a domain error carries: a busy service tells the client when to retry."""
+    if isinstance(exc, ServiceBusyError):
+        return {"Retry-After": str(get_settings().retry_after_seconds)}
+    return None
+
+
 async def domain_error_handler(request: Request, exc: ExtractionError) -> JSONResponse:
-    return problem_response(request, STATUS_BY_EXCEPTION[type(exc)], str(exc))
+    return problem_response(request, STATUS_BY_EXCEPTION[type(exc)], str(exc), headers=_headers_for(exc))
 
 
 async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
