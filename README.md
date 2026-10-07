@@ -45,7 +45,13 @@ pdf-extract-service/
 │   ├── test_schemas.py               # Tests del contrato de entrada
 │   ├── test_extraction_endpoint.py   # Tests de integración de POST /api/v1/extraer
 │   ├── test_extract_endpoint.py      # Tests de integración de POST /extract
-│   └── test_problem_details.py       # Tests del formato de errores RFC 9457
+│   ├── test_problem_details.py       # Tests del formato de errores RFC 9457
+│   └── stress/                       # Pruebas de carga del TP (k6 y Vegeta)
+│       ├── generate_pdfs.py          # Genera los 4 PDFs de prueba
+│       ├── pdfs/                     # liviano, mediano, largo y pesado
+│       ├── k6-spike.js               # Spike: 0 → 100 VUs
+│       ├── vegeta-constant.sh        # Carga fija: 50 req/s durante 30 s
+│       └── results/                  # Salidas de cada medición
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
@@ -261,6 +267,52 @@ docker run --rm -p 8000:8000 extractor-service:latest
 
 El contenedor corre como usuario no-root, expone el puerto `8000` y define un `HEALTHCHECK` contra `/health`.
 
+## Pruebas de carga (TP de test de carga y stress)
+
+Los scripts en `tests/stress/` reproducen las dos pruebas con las que la cátedra compara las entregas. Pegan contra `POST /extract` a través de Traefik, con las 5 réplicas levantadas.
+
+| Prueba | Script | Perfil | Envío del PDF |
+|--------|--------|--------|---------------|
+| Spike (modelo cerrado) | `k6-spike.js` | 0 → 100 VUs en 10 s, 20 s a 100 VUs, 100 → 0 en 10 s | multipart (`file`) |
+| Carga fija (modelo abierto) | `vegeta-constant.sh` | 50 req/s durante 30 s (1.500 pedidos), timeout 30 s | body binario |
+
+Las dos pruebas rotan en orden los 4 PDFs de `tests/stress/pdfs/`, así cada corrida manda la misma mezcla.
+
+### PDFs de prueba
+
+Se generan con un script en lugar de usar documentos reales: el set es reproducible (semilla fija, mismos archivos byte a byte) y no tiene problemas de derechos de autor.
+
+| PDF | Páginas | Tamaño | Qué estresa |
+|-----|---------|--------|-------------|
+| `liviano.pdf` | 2 | 0.01 MB | El costo fijo de cada pedido |
+| `mediano.pdf` | 30 | 0.13 MB | Un documento típico |
+| `largo.pdf` | 300 | 1.36 MB | La CPU durante la extracción |
+| `pesado.pdf` | 12, con una imagen grande por página | 9.02 MB | La subida y la memoria |
+
+```bash
+uv run python tests/stress/generate_pdfs.py
+```
+
+### Cómo correrlas
+
+No hace falta instalar k6 ni Vegeta: corren en contenedores. Con el servicio levantado (`docker compose up -d --build`), desde la raíz del repo:
+
+```bash
+# Spike con k6 (imagen oficial grafana/k6)
+docker run --rm -v "$PWD/tests/stress:/scripts"   -e BASE_URL=http://host.docker.internal:8000   grafana/k6 run /scripts/k6-spike.js
+
+# Carga fija con Vegeta (imagen de la comunidad peterevans/vegeta)
+docker run --rm -v "$PWD/tests/stress:/scripts"   -e BASE_URL=http://host.docker.internal:8000   --entrypoint sh peterevans/vegeta /scripts/vegeta-constant.sh
+```
+
+En Git Bash (Windows) hay que anteponer `MSYS_NO_PATHCONV=1` y usar `$(pwd -W)` en lugar de `$PWD`, para que no se reescriban las rutas del contenedor.
+
+- `BASE_URL` apunta al servicio. `host.docker.internal` es la máquina anfitriona vista desde el contenedor.
+- El script de Vegeta acepta además `RATE`, `DURATION` y `TIMEOUT` (por defecto, `50`, `30s` y `30s`).
+- El script de k6 comparte una sola copia de los PDFs entre los 100 VUs (`k6/experimental/fs`). Con el `open()` clásico cada VU tendría su propia copia: unos 1 GB de RAM.
+
+Las salidas de cada medición se guardan en `tests/stress/results/`, nombradas por prueba, motor de extracción y cantidad de réplicas.
+
 ## Stack técnico
 
 | Componente         | Herramienta            |
@@ -272,3 +324,5 @@ El contenedor corre como usuario no-root, expone el puerto `8000` y define un `H
 | Testing                | pytest, pytest-asyncio, httpx2 |
 | Dependencias           | uv                     |
 | Contenedores            | Docker / Docker Compose |
+| Reverse proxy           | Traefik v3.6           |
+| Pruebas de carga        | Grafana k6, Vegeta     |
