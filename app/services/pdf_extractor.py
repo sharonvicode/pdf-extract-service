@@ -7,6 +7,7 @@ reusable outside of an HTTP context.
 import asyncio
 import time
 from dataclasses import dataclass
+from typing import Protocol
 
 import pymupdf
 
@@ -21,6 +22,12 @@ class ExtractionResult:
     text: str
     page_count: int
     processing_time_ms: float
+
+
+class PDFExtractor(Protocol):
+    """What the endpoints need from an extraction service, whatever adds limits or logging around it."""
+
+    async def extract_text_async(self, file_bytes: bytes) -> ExtractionResult: ...
 
 
 class PDFExtractorService:

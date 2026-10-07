@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from app.api.dependencies import get_pdf_extractor_service
 from app.api.error_handlers import DOMAIN_ERROR_RESPONSES
 from app.schemas.extraction import ExtractionMetadata, ExtractionResponse, PDFUploadRequest
-from app.services.pdf_extractor import PDFExtractorService
+from app.services.pdf_extractor import PDFExtractor
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ router = APIRouter()
 )
 async def extract_pdf_text(
     file: UploadFile = File(..., description="PDF del que se extrae el texto."),
-    service: PDFExtractorService = Depends(get_pdf_extractor_service),
+    service: PDFExtractor = Depends(get_pdf_extractor_service),
 ) -> ExtractionResponse:
     file_bytes = await file.read()
     filename = file.filename or "unknown.pdf"

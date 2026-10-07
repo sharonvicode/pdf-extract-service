@@ -86,11 +86,15 @@ def problem_response(
     )
 
 
-async def domain_error_handler(request: Request, exc: ExtractionError) -> JSONResponse:
-    headers = None
+def _headers_for(exc: ExtractionError) -> dict[str, str] | None:
+    """Extra HTTP headers a domain error carries: a busy service tells the client when to retry."""
     if isinstance(exc, ServiceBusyError):
-        headers = {"Retry-After": str(get_settings().retry_after_seconds)}
-    return problem_response(request, STATUS_BY_EXCEPTION[type(exc)], str(exc), headers=headers)
+        return {"Retry-After": str(get_settings().retry_after_seconds)}
+    return None
+
+
+async def domain_error_handler(request: Request, exc: ExtractionError) -> JSONResponse:
+    return problem_response(request, STATUS_BY_EXCEPTION[type(exc)], str(exc), headers=_headers_for(exc))
 
 
 async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:

@@ -28,9 +28,11 @@ pdf-extract-service/
 │   │   ├── extraction.py             # DTOs Pydantic: entrada y salida
 │   │   └── problem_details.py        # Cuerpo de error RFC 9457
 │   ├── services/
+│   │   ├── concurrency_limiter.py    # Backpressure: extracciones a la vez y cola de espera
 │   │   ├── file_size.py              # Regla del tamaño máximo (413), compartida
 │   │   ├── markdown_renderer.py      # Arma el Markdown (títulos y párrafos)
-│   │   └── pdf_extractor.py          # Lógica de negocio: extracción con PyMuPDF
+│   │   ├── pdf_extractor.py          # Lógica de negocio: extracción con PyMuPDF
+│   │   └── throttled_extractor.py    # Decorador: extrae solo cuando el limitador da turno
 │   └── api/
 │       ├── dependencies.py           # Proveedores de dependencias compartidos
 │       ├── error_handlers.py         # Traduce excepciones -> respuestas RFC 9457
@@ -46,6 +48,8 @@ pdf-extract-service/
 │   ├── test_extraction_endpoint.py   # Tests de integración de POST /api/v1/extraer
 │   ├── test_extract_endpoint.py      # Tests de integración de POST /extract
 │   ├── test_problem_details.py       # Tests del formato de errores RFC 9457
+│   ├── test_concurrency_limiter.py   # Tests del limitador de concurrencia
+│   ├── test_dependencies.py          # Tests de cómo los endpoints obtienen el servicio
 │   └── stress/                       # Pruebas de carga del TP (k6 y Vegeta)
 │       ├── generate_pdfs.py          # Genera los 4 PDFs de prueba
 │       ├── pdfs/                     # liviano, mediano, largo y pesado
@@ -95,6 +99,9 @@ cp .env.example .env
 | `APP_VERSION`            | Versión expuesta en `/docs`                   | `0.1.0`                   |
 | `PORT`                   | Puerto de tu máquina donde Docker Compose publica el servicio (dentro del contenedor siempre es `8000`) | `8000` |
 | `MAX_FILE_SIZE_MB`       | Tamaño máximo de PDF aceptado (MB)            | `10`                      |
+| `EXTRACTION_CONCURRENCY` | Extracciones simultáneas por proceso (mínimo 1). Ver [Backpressure](#backpressure) | `1` |
+| `EXTRACTION_QUEUE_SIZE`  | Pedidos que pueden esperar turno por proceso antes de responder 503 | `20` |
+| `RETRY_AFTER_SECONDS`    | Valor del header `Retry-After` del 503        | `1`                       |
 | `LOG_LEVEL`              | Nivel de logging del servicio: `DEBUG`, `INFO`, `WARNING`, `ERROR` o `CRITICAL` (otro valor impide arrancar) | `INFO` |
 
 ## Levantar el servicio localmente
@@ -171,6 +178,7 @@ Todos los errores se devuelven con `Content-Type: application/problem+json` sigu
 | `422`  | Contenido no procesable      | El archivo no es un PDF legible (incluido un archivo vacío), el PDF no tiene texto extraíble (por ejemplo, páginas en blanco o escaneadas), o falta el campo `file` (en este caso el cuerpo incluye además `errors` con el detalle de cada campo) |
 | `404`  | No encontrado                | La ruta no existe |
 | `405`  | Método no permitido          | El método HTTP no está permitido en esa ruta |
+| `503`  | Servicio no disponible       | Las extracciones en curso y la cola de espera están llenas (backpressure). Incluye el header `Retry-After` |
 | `500`  | Error interno del servidor   | Error inesperado. El `detail` es genérico; la causa real solo queda en el log del servicio |
 
 Los campos de la respuesta, los títulos y los mensajes (`detail`) están en español. La lista `errors` que acompaña al 422 por campo faltante conserva los mensajes originales de FastAPI (en inglés).
@@ -266,6 +274,23 @@ docker run --rm -p 8000:8000 extractor-service:latest
 ```
 
 El contenedor corre como usuario no-root, expone el puerto `8000` y define un `HEALTHCHECK` contra `/health`.
+
+## Backpressure
+
+Cada proceso extrae como máximo `EXTRACTION_CONCURRENCY` PDFs a la vez (1 por defecto). Los pedidos que llegan mientras tanto **esperan su turno en orden**, hasta `EXTRACTION_QUEUE_SIZE` (20). Si la cola también está llena, el servicio responde **`503` al instante** con `Retry-After`, en lugar de aceptar un pedido que va a esperar más de lo que el cliente tolera.
+
+```
+pedido ──► ¿hay lugar? ──no──► 503 + Retry-After (inmediato)
+               │ sí
+               ▼
+         cola en orden ──► 1 extracción a la vez ──► 200
+```
+
+**Por qué:** en las pruebas de carga, cuando muchos pedidos extraían al mismo tiempo en una réplica, competían por el GIL y por su única CPU, y el throughput caía a la mitad (6.22 req/s con 1 pedido por réplica contra 3.06 req/s con ~20). Además, los pedidos que esperaban más que el timeout del cliente se seguían procesando para nadie.
+
+- `ConcurrencyLimiter` (`app/services/concurrency_limiter.py`) cuenta los pedidos en curso y en espera, y los hace esperar con un semáforo.
+- `ThrottledExtractor` (`app/services/throttled_extractor.py`) envuelve al servicio de extracción con la misma interfaz (`PDFExtractor`): el servicio no sabe nada de concurrencia.
+- Hay un solo limitador por proceso, compartido por `/extract` y `/api/v1/extraer`.
 
 ## Pruebas de carga (TP de test de carga y stress)
 

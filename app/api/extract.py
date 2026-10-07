@@ -5,7 +5,7 @@ from app.api.dependencies import get_pdf_extractor_service
 from app.api.error_handlers import DOMAIN_ERROR_RESPONSES
 from app.schemas.extraction import ExtractContentResponse
 from app.services.file_size import ensure_within_size_limit
-from app.services.pdf_extractor import PDFExtractorService
+from app.services.pdf_extractor import PDFExtractor
 
 router = APIRouter()
 
@@ -32,7 +32,7 @@ async def read_pdf_bytes(request: Request, file: UploadFile | None) -> bytes:
 async def extract_content(
     request: Request,
     file: UploadFile | None = File(None, description="PDF del que se extrae el contenido."),
-    service: PDFExtractorService = Depends(get_pdf_extractor_service),
+    service: PDFExtractor = Depends(get_pdf_extractor_service),
 ) -> ExtractContentResponse:
     file_bytes = await read_pdf_bytes(request, file)
     ensure_within_size_limit(len(file_bytes))
