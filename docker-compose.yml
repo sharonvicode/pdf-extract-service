@@ -1,15 +1,20 @@
 services:
   # Reverse proxy: the only service reachable from outside. It discovers the
   # extractor replicas through the Docker API and balances requests among them.
+  # It listens where the professor's load tests point: HTTP on 8080 (Vegeta's
+  # targets file) and HTTPS on 443 (k6's https://extract.universidad.localhost),
+  # the latter with the self-signed certificate Traefik generates by default.
   traefik:
     image: traefik:v3.6
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
       - --log.level=INFO
     ports:
-      - "${PORT:-8000}:80"
+      - "${PORT:-8080}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
@@ -48,4 +53,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.extractor.rule=PathPrefix(`/`)
       - traefik.http.routers.extractor.entrypoints=web
+      - traefik.http.routers.extractor-tls.rule=PathPrefix(`/`)
+      - traefik.http.routers.extractor-tls.entrypoints=websecure
+      - traefik.http.routers.extractor-tls.tls=true
       - traefik.http.services.extractor.loadbalancer.server.port=8000

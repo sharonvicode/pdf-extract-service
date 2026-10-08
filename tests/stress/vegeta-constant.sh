@@ -5,11 +5,11 @@
 # PDF_SET picks the documents: "profesor" (default, the TP's official set) or "sinteticos".
 #
 # Usage (from the repo root, with the service running):
-#   docker run --rm -v "$PWD/tests/stress:/scripts" -e BASE_URL=http://host.docker.internal:8000 \
+#   docker run --rm -v "$PWD/tests/stress:/scripts" -e BASE_URL=http://host.docker.internal:8080 \
 #     --entrypoint sh peterevans/vegeta /scripts/vegeta-constant.sh
 set -eu
 
-BASE_URL="${BASE_URL:-http://localhost:8000}"
+BASE_URL="${BASE_URL:-http://localhost:8080}"
 RATE="${RATE:-50}"
 DURATION="${DURATION:-30s}"
 TIMEOUT="${TIMEOUT:-30s}"

@@ -39,6 +39,11 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] Medido con los PDFs oficiales (2 corridas): k6 2.92 / 1.53 req/s (98.9% / 96.3%); Vegeta 11.93 / 7.34 req/s (47.7% / 29.3%). La variación sale de la RAM libre del equipo (577 MB en la 2ª)
 - [x] Los 4 PDFs oficiales responden 200 (41–147 ms cada uno) y entran en el límite de 10 MB
 
+## Extra — Compatibilidad con los scripts de la cátedra
+- [x] Revisados `test_carga.txt` (Vegeta: `http://localhost:8080`, body binario) y `spike_tests.js` (k6: `https://extract.universidad.localhost`, body binario)
+- [x] Traefik publica HTTP en 8080 (antes 8000) y HTTPS en 443 con certificado autofirmado; responde a cualquier nombre de host
+- [x] Verificado con los archivos de la cátedra: Vegeta 100% de éxito; k6 100% con `--insecure-skip-tls-verify` (sin ese flag el certificado autofirmado se rechaza)
+
 ## Fase 5 — Informe
 - [ ] Arquitectura y decisiones de diseño
 - [ ] Cuello de botella identificado
