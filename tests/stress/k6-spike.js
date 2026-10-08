@@ -2,7 +2,7 @@
 // 0 -> 100 VUs in 10 s, 20 s at 100 VUs, 100 -> 0 VUs in 10 s.
 //
 // Usage (from the repo root, with the service running):
-//   docker run --rm -v "$PWD/tests/stress:/scripts" -e BASE_URL=http://host.docker.internal:8000 \
+//   docker run --rm -v "$PWD/tests/stress:/scripts" -e BASE_URL=http://host.docker.internal:8080 \
 //     grafana/k6 run /scripts/k6-spike.js
 // PDF_SET picks the documents: "profesor" (default, the TP's official set) or "sinteticos".
 import http from "k6/http";
@@ -10,7 +10,7 @@ import { check } from "k6";
 import exec from "k6/execution";
 import { open, SeekMode } from "k6/experimental/fs";
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:8000";
+const BASE_URL = __ENV.BASE_URL || "http://localhost:8080";
 const PDF_SETS = {
   profesor: {
     dir: "./pdfs",

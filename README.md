@@ -98,7 +98,8 @@ cp .env.example .env
 |--------------------------|-----------------------------------------------|---------------------------|
 | `APP_NAME`               | Nombre de la aplicación                       | `extractor-service`       |
 | `APP_VERSION`            | Versión expuesta en `/docs`                   | `0.1.0`                   |
-| `PORT`                   | Puerto de tu máquina donde Docker Compose publica el servicio (dentro del contenedor siempre es `8000`) | `8000` |
+| `PORT`                   | Puerto HTTP de tu máquina donde Docker Compose publica Traefik (dentro de la red de Docker cada réplica escucha en `8000`) | `8080` |
+| `HTTPS_PORT`             | Puerto HTTPS de tu máquina donde se publica Traefik, con certificado autofirmado | `443` |
 | `MAX_FILE_SIZE_MB`       | Tamaño máximo de PDF aceptado (MB)            | `10`                      |
 | `EXTRACTION_CONCURRENCY` | Extracciones simultáneas por proceso (mínimo 1). Ver [Backpressure](#backpressure) | `1` |
 | `EXTRACTION_QUEUE_SIZE`  | Pedidos que pueden esperar turno por proceso antes de responder 503 | `20` |
@@ -228,7 +229,7 @@ Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay bin
 El compose levanta el Extractor **escalado horizontalmente** detrás de un reverse proxy:
 
 ```
-cliente ──► Traefik (:8000) ──► extractor réplica 1 … réplica 5 (:8000 interno)
+cliente ──► Traefik (:8080 HTTP · :443 HTTPS) ──► extractor réplica 1 … réplica 5 (:8000 interno)
 ```
 
 - **Traefik** es el único servicio con puerto publicado. Descubre las réplicas a través de la API de Docker (por eso monta `/var/run/docker.sock` en solo lectura) y reparte los pedidos entre ellas. Solo envía tráfico a las réplicas cuyo healthcheck está sano.
@@ -246,7 +247,10 @@ cliente ──► Traefik (:8000) ──► extractor réplica 1 … réplica 5 
    docker compose up --build
    ```
 
-3. El servicio queda disponible en `http://localhost:8000` (o el puerto que definas en `PORT`).
+3. El servicio queda disponible en:
+   - `http://localhost:8080` (o el puerto que definas en `PORT`). Es donde apunta el archivo de objetivos de Vegeta de la cátedra.
+   - `https://localhost` o `https://extract.universidad.localhost` (puerto `HTTPS_PORT`, 443 por defecto). Es donde apunta el script de k6 de la cátedra. El certificado lo genera Traefik y es autofirmado: con k6 hay que agregar `--insecure-skip-tls-verify` y con curl `-k`. La alternativa es usar `http://localhost:8080`.
+   - Traefik responde a cualquier nombre de host, así que no hace falta configurar ningún dominio.
 
 4. Para correrlo en segundo plano:
 
@@ -337,12 +341,12 @@ No hace falta instalar k6 ni Vegeta: corren en contenedores. Con el servicio lev
 ```bash
 # Spike con k6 (imagen oficial grafana/k6)
 docker run --rm -v "$PWD/tests/stress:/scripts" \
-  -e BASE_URL=http://host.docker.internal:8000 \
+  -e BASE_URL=http://host.docker.internal:8080 \
   grafana/k6 run /scripts/k6-spike.js
 
 # Carga fija con Vegeta (imagen de la comunidad peterevans/vegeta)
 docker run --rm -v "$PWD/tests/stress:/scripts" \
-  -e BASE_URL=http://host.docker.internal:8000 \
+  -e BASE_URL=http://host.docker.internal:8080 \
   --entrypoint sh peterevans/vegeta /scripts/vegeta-constant.sh
 ```
 
