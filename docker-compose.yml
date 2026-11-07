@@ -11,6 +11,7 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      - --serversTransport.forwardingTimeouts.responseHeaderTimeout=60s
       - --log.level=INFO
     ports:
       - "${PORT:-8080}:80"
@@ -53,7 +54,12 @@ services:
       - traefik.enable=true
       - traefik.http.routers.extractor.rule=PathPrefix(`/`)
       - traefik.http.routers.extractor.entrypoints=web
+      - traefik.http.routers.extractor.middlewares=extractor-circuit-breaker
       - traefik.http.routers.extractor-tls.rule=PathPrefix(`/`)
       - traefik.http.routers.extractor-tls.entrypoints=websecure
       - traefik.http.routers.extractor-tls.tls=true
+      - traefik.http.routers.extractor-tls.middlewares=extractor-circuit-breaker
       - traefik.http.services.extractor.loadbalancer.server.port=8000
+      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.expression=NetworkErrorRatio() > 0.50
+      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.fallbackDuration=10s
+      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.recoveryDuration=10s
