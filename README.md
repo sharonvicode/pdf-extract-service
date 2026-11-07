@@ -50,6 +50,7 @@ pdf-extract-service/
 │   ├── test_problem_details.py       # Tests del formato de errores RFC 9457
 │   ├── test_concurrency_limiter.py   # Tests del limitador de concurrencia
 │   ├── test_dependencies.py          # Tests de cómo los endpoints obtienen el servicio
+│   ├── test_docker_compose.py        # Tests del circuit breaker de Traefik en el compose
 │   └── stress/                       # Pruebas de carga del TP (k6 y Vegeta)
 │       ├── generate_pdfs.py          # Genera los 4 PDFs sintéticos
 │       ├── pdfs/                     # Los 4 PDFs oficiales de la cátedra
@@ -234,6 +235,7 @@ cliente ──► Traefik (:8080 HTTP · :443 HTTPS) ──► extractor réplic
 
 - **Traefik** es el único servicio con puerto publicado. Descubre las réplicas a través de la API de Docker (por eso monta `/var/run/docker.sock` en solo lectura) y reparte los pedidos entre ellas. Solo envía tráfico a las réplicas cuyo healthcheck está sano.
 - **extractor** corre `EXTRACTOR_REPLICAS` réplicas (5 por defecto, el máximo que permite el TP), cada una limitada a **1 CPU y 512 MB** de RAM. Traefik también tiene 1 CPU y 512 MB: bajo la prueba de Vegeta llegó a usar unos 210 MB.
+- Traefik protege a las réplicas con un **circuit breaker** (ver [Circuit breaker](#circuit-breaker)).
 
 1. (Opcional) Si querés cambiar algún valor por defecto, creá un `.env` a partir de `.env.example` y editalo. Sin `.env` se usan los valores por defecto:
 
@@ -296,6 +298,37 @@ pedido ──► ¿hay lugar? ──no──► 503 + Retry-After (inmediato)
 - `ConcurrencyLimiter` (`app/services/concurrency_limiter.py`) cuenta los pedidos en curso y en espera, y los hace esperar con un semáforo.
 - `ThrottledExtractor` (`app/services/throttled_extractor.py`) envuelve al servicio de extracción con la misma interfaz (`PDFExtractor`): el servicio no sabe nada de concurrencia.
 - Hay un solo limitador por proceso, compartido por `/extract` y `/api/v1/extraer`.
+
+## Circuit breaker
+
+Si las réplicas dejan de responder, Traefik **deja de mandarles pedidos por un tiempo** y responde `503` al instante, en lugar de dejar a cada cliente esperando. Así una falla no se propaga a quien llama (fallo en cascada) y las réplicas se recuperan sin recibir más carga.
+
+Lo maneja **Traefik**, no el código Python. Es una cuestión de infraestructura (SRP): el Extractor no sabe que existe. Se configura con un middleware en las labels del servicio `extractor` (`docker-compose.yml`) y se aplica a los dos routers, HTTP y HTTPS.
+
+```
+CERRADO ──más del 50% de errores de red──► ABIERTO ──10 s──► SEMIABIERTO
+   ▲         (pedidos normales)            (503 inmediato)   (deja pasar de a poco)
+   └──────────────────── responden bien durante 10 s ───────────────┘
+```
+
+| Parámetro del patrón | Valor | Dónde | Por qué |
+|----------------------|-------|-------|---------|
+| Tiempo de expiración | `60s` | `--serversTransport.forwardingTimeouts.responseHeaderTimeout` (Traefik) | Sin timeout, Traefik espera para siempre a una réplica colgada y la falla nunca se cuenta. 60 s es el timeout de k6; en el spike los pedidos legítimos tardaron hasta 44 s por la cola del backpressure, así que ninguno se corta. |
+| Umbral | `NetworkErrorRatio() > 0.50` | `circuitbreaker.expression` | Cuenta solo errores de red (`502`/`504`: réplica caída o que superó el timeout). El `503` del [backpressure](#backpressure) no cuenta: si contara, el circuito se abriría justo bajo carga, cuando el servicio está funcionando bien. |
+| Ventana (abierto) | `10s` | `circuitbreaker.fallbackDuration` | Tiempo en que responde `503` sin llamar a las réplicas. |
+| Semiabierto | `10s` | `circuitbreaker.recoveryDuration` | Tiempo en que vuelve a dejar pasar el tráfico de a poco antes de cerrarse. |
+
+**Cómo comprobarlo** con el compose levantado, pausando todas las réplicas:
+
+```bash
+docker compose pause extractor
+curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" http://localhost:8080/health   # repetir varias veces
+docker compose unpause extractor
+```
+
+Los primeros pedidos responden `504` al vencer el timeout; con más de la mitad fallando, el circuito se abre y los siguientes responden `503` en milisegundos. Después de reanudar las réplicas sigue respondiendo `503` durante la ventana, y vuelve a `200` cuando termina la recuperación. Con el timeout de 60 s cada `504` tarda un minuto; con un timeout de 3 s se observó: `504` (3 s), `504` (3 s), `503` (0.005 s) × 4 y, unos 20 s después de reanudar, `200`.
+
+`tests/test_docker_compose.py` fija esta configuración: lee las labels del compose igual que Traefik.
 
 ## Pruebas de carga (TP de test de carga y stress)
 
