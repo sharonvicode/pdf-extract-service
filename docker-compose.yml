@@ -7,6 +7,9 @@ services:
   traefik:
     image: traefik:v3.6
     command:
+      # Routing comes from the tags each replica registers in Consul, so Traefik no longer
+      # mounts /var/run/docker.sock. watch=true reacts to replicas leaving at once instead
+      # of polling every 15 s (meanwhile it kept sending requests to a gone replica).
       - --providers.consulcatalog.endpoint.address=consul:8500
       - --providers.consulcatalog.exposedByDefault=false
       - --providers.consulcatalog.watch=true
@@ -32,6 +35,10 @@ services:
           cpus: "1.0"
           memory: 512M  # under Vegeta it reached ~210 MB; 256 MB left too little margin
 
+  # Service registry: each extractor replica registers itself here on startup (with an
+  # HTTP health check on /health) and Traefik reads the healthy ones. Dev mode: a single
+  # node with in-memory data, enough for the TP since replicas re-register on startup.
+  # No published ports: only Traefik and the replicas use it.
   consul:
     image: hashicorp/consul:1.21
     command: agent -dev -client=0.0.0.0
@@ -53,6 +60,11 @@ services:
         required: false
     environment:
       CONSUL_URL: http://consul:8500
+      # Traefik's configuration for this service, registered as Consul tags (JSON list).
+      # Circuit breaker, applied to both routers: it opens when over half of the requests
+      # fail with a network error (502/504: replicas down or past the timeout), answers
+      # 503 at once for 10 s, then lets traffic back in gradually over 10 s. The 503 of
+      # the extractor's own backpressure is not a network error, so it never opens it.
       CONSUL_SERVICE_TAGS: >-
         [
         "traefik.enable=true",

@@ -13,16 +13,18 @@ Forma parte de una arquitectura de microservicios más amplia: es un servicio ai
 - Arquitectura en capas: endpoints HTTP, lógica de negocio y esquemas están desacoplados entre sí (principios SOLID/KISS/DRY/YAGNI).
 - Suite de tests con **pytest**, desarrollada bajo un enfoque TDD, con PDFs generados en memoria de distintos tamaños (1, 10 y 100 páginas).
 - Listo para contenedores: `Dockerfile` optimizado y `docker-compose.yml` propio del servicio.
+- Cada réplica se registra en **Consul** al arrancar, y Traefik las descubre desde ahí (ver [Descubrimiento de servicios](#descubrimiento-de-servicios-consul)).
 
 ## Arquitectura del proyecto
 
 ```
 pdf-extract-service/
 ├── app/
-│   ├── main.py                       # Application factory (FastAPI) + /health
+│   ├── main.py                       # Application factory (FastAPI) + /health + registro en Consul
 │   ├── core/
 │   │   ├── config.py                 # Configuración vía variables de entorno
-│   │   └── logging.py                # Logging del servicio según LOG_LEVEL
+│   │   ├── logging.py                # Logging del servicio según LOG_LEVEL
+│   │   └── service_registry.py       # Registra y da de baja la réplica en Consul
 │   ├── exceptions.py                 # Excepciones de dominio (agnósticas de HTTP)
 │   ├── schemas/
 │   │   ├── extraction.py             # DTOs Pydantic: entrada y salida
@@ -50,7 +52,8 @@ pdf-extract-service/
 │   ├── test_problem_details.py       # Tests del formato de errores RFC 9457
 │   ├── test_concurrency_limiter.py   # Tests del limitador de concurrencia
 │   ├── test_dependencies.py          # Tests de cómo los endpoints obtienen el servicio
-│   ├── test_docker_compose.py        # Tests del circuit breaker de Traefik en el compose
+│   ├── test_docker_compose.py        # Tests del compose: descubrimiento por Consul y circuit breaker
+│   ├── test_service_registry.py      # Tests del registro en Consul (contra un Consul falso por HTTP)
 │   └── stress/                       # Pruebas de carga del TP (k6 y Vegeta)
 │       ├── generate_pdfs.py          # Genera los 4 PDFs sintéticos
 │       ├── pdfs/                     # Los 4 PDFs oficiales de la cátedra
@@ -106,6 +109,10 @@ cp .env.example .env
 | `EXTRACTION_QUEUE_SIZE`  | Pedidos que pueden esperar turno por proceso antes de responder 503 | `20` |
 | `RETRY_AFTER_SECONDS`    | Valor del header `Retry-After` del 503        | `1`                       |
 | `LOG_LEVEL`              | Nivel de logging del servicio: `DEBUG`, `INFO`, `WARNING`, `ERROR` o `CRITICAL` (otro valor impide arrancar) | `INFO` |
+| `CONSUL_URL`             | Dirección de Consul. Sin ella la réplica no se registra (desarrollo local, tests). El compose la define como `http://consul:8500` | — |
+| `CONSUL_SERVICE_NAME`    | Nombre con el que la réplica se registra en Consul | `extractor` |
+| `CONSUL_SERVICE_TAGS`    | Tags del registro, como lista JSON: es la configuración de Traefik (routers y circuit breaker). El compose los define | `[]` |
+| `SERVICE_PORT`           | Puerto en el que escucha la réplica, el que Consul anuncia y chequea | `8000` |
 
 ## Levantar el servicio localmente
 
@@ -231,9 +238,12 @@ El compose levanta el Extractor **escalado horizontalmente** detrás de un rever
 
 ```
 cliente ──► Traefik (:8080 HTTP · :443 HTTPS) ──► extractor réplica 1 … réplica 5 (:8000 interno)
+               │                                         │
+               └──── ¿qué réplicas hay? ──► Consul ◄──── se registran al arrancar
 ```
 
-- **Traefik** es el único servicio con puerto publicado. Descubre las réplicas a través de la API de Docker (por eso monta `/var/run/docker.sock` en solo lectura) y reparte los pedidos entre ellas. Solo envía tráfico a las réplicas cuyo healthcheck está sano.
+- **Traefik** es el único servicio con puerto publicado. Le pregunta a **Consul** qué réplicas hay y reparte los pedidos entre las que tienen el health check sano (ver [Descubrimiento de servicios](#descubrimiento-de-servicios-consul)).
+- **consul** es el registro de servicios. No publica puertos: solo lo usan Traefik y las réplicas, dentro de la red de Docker.
 - **extractor** corre `EXTRACTOR_REPLICAS` réplicas (5 por defecto, el máximo que permite el TP), cada una limitada a **1 CPU y 512 MB** de RAM. Traefik también tiene 1 CPU y 512 MB: bajo la prueba de Vegeta llegó a usar unos 210 MB.
 - Traefik protege a las réplicas con un **circuit breaker** (ver [Circuit breaker](#circuit-breaker)).
 
@@ -303,7 +313,7 @@ pedido ──► ¿hay lugar? ──no──► 503 + Retry-After (inmediato)
 
 Si las réplicas dejan de responder, Traefik **deja de mandarles pedidos por un tiempo** y responde `503` al instante, en lugar de dejar a cada cliente esperando. Así una falla no se propaga a quien llama (fallo en cascada) y las réplicas se recuperan sin recibir más carga.
 
-Lo maneja **Traefik**, no el código Python. Es una cuestión de infraestructura (SRP): el Extractor no sabe que existe. Se configura con un middleware en las labels del servicio `extractor` (`docker-compose.yml`) y se aplica a los dos routers, HTTP y HTTPS.
+Lo maneja **Traefik**, no el código Python. Es una cuestión de infraestructura (SRP): el Extractor no sabe que existe. Se configura con un middleware en los tags de Consul (`CONSUL_SERVICE_TAGS` en `docker-compose.yml`) y se aplica a los dos routers, HTTP y HTTPS.
 
 ```
 CERRADO ──más del 50% de errores de red──► ABIERTO ──10 s──► SEMIABIERTO
@@ -328,7 +338,51 @@ docker compose unpause extractor
 
 Los primeros pedidos responden `504` al vencer el timeout; con más de la mitad fallando, el circuito se abre y los siguientes responden `503` en milisegundos. Después de reanudar las réplicas sigue respondiendo `503` durante la ventana, y vuelve a `200` cuando termina la recuperación. Con el timeout de 60 s cada `504` tarda un minuto; con un timeout de 3 s se observó: `504` (3 s), `504` (3 s), `503` (0.005 s) × 4 y, unos 20 s después de reanudar, `200`.
 
-`tests/test_docker_compose.py` fija esta configuración: lee las labels del compose igual que Traefik.
+- Si las réplicas siguen sin responder, a los ~15 s Consul marca sus health checks como críticos y Traefik saca el servicio: ahí responde `404` en lugar de `503` (ver [limitaciones](#limitaciones)).
+- Cada vez que cambia lo que hay en Consul, Traefik recarga su configuración y el circuit breaker empieza de cero. Por eso conviene esperar unos 20 s después de levantar el compose antes de probarlo: en los primeros segundos Traefik recibe varias actualizaciones seguidas.
+
+`tests/test_docker_compose.py` fija esta configuración: lee los tags del compose igual que Traefik.
+
+## Descubrimiento de servicios (Consul)
+
+Las réplicas no tienen una dirección fija: cada contenedor recibe una IP al arrancar, y se pueden levantar o apagar réplicas en cualquier momento. **Consul** es el registro donde cada réplica anota dónde está, y Traefik lo consulta para saber a quién mandarle los pedidos (patrón *Service Discovery*).
+
+```
+1. Al arrancar, cada réplica se registra:   PUT /v1/agent/service/register
+   {ID: "extractor-<hostname>", Address: <su IP>, Port: 8000, Tags: [...], Check: GET /health cada 10 s}
+2. Consul le pega a /health de cada réplica y sabe cuáles están sanas.
+3. Traefik escucha a Consul (watch) y arma sus routers con los tags de las réplicas sanas.
+4. Al apagarse (SIGTERM), la réplica se da de baja:   PUT /v1/agent/service/deregister/<ID>
+```
+
+- **Dónde está el código:** `app/core/service_registry.py` registra y da de baja la réplica con `requests`, y el `lifespan` de `app/main.py` lo llama al arrancar y al apagarse. Es infraestructura: la lógica de extracción no sabe que Consul existe.
+- **Los tags vienen del entorno** (`CONSUL_SERVICE_TAGS`): el código no conoce Traefik, y la configuración de ruteo sigue en el compose.
+- **Sin `CONSUL_URL` la réplica no se registra**, así funcionan igual `uv run uvicorn …`, los tests y cualquier compose sin Consul (por ejemplo el de integración del Orchestrator).
+- **Si Consul no responde al arrancar, la réplica no levanta** (fail fast): una réplica que Traefik no puede descubrir nunca recibiría tráfico. Docker la reinicia (`restart: unless-stopped`).
+- **Si falla la baja al apagarse, solo se loguea un warning:** Consul la borra igual cuando su health check lleva un minuto en estado crítico (`DeregisterCriticalServiceAfter`).
+
+**Por qué Consul y no las labels de Docker:** antes Traefik descubría las réplicas leyendo las labels a través de la API de Docker, para lo cual montaba `/var/run/docker.sock`. Ese socket da control sobre Docker (crear contenedores, montar el disco del host), así que un Traefik comprometido comprometía la máquina. Con Consul, Traefik ya no lo necesita. Además el descubrimiento deja de depender de Docker.
+
+**Por qué `watch=true`:** por defecto Traefik le pregunta a Consul cada 15 s. Al apagar una réplica, durante ese intervalo seguía mandándole pedidos: fallaron 3 de 20. Con `watch` Traefik se entera al instante: 40 de 40 respondieron `200` mientras se apagaban réplicas.
+
+**Cómo verlo** con el compose levantado:
+
+```bash
+# Servicios registrados
+docker compose exec consul consul catalog services
+
+# Estado del health check de cada réplica (una entrada por réplica, "Status": "passing")
+docker compose exec consul wget -qO- http://127.0.0.1:8500/v1/health/checks/extractor
+
+# Apagar una réplica: se da de baja y Traefik deja de mandarle pedidos
+docker stop pdf-extract-service-extractor-1
+docker start pdf-extract-service-extractor-1
+```
+
+### Limitaciones
+
+- **Con todas las réplicas caídas, Traefik responde `404`, no `503`.** Cuando Consul marca todos los health checks como críticos, Traefik borra el router. El provider de Consul de Traefik v3.6 no tiene la opción `allowEmptyServices` del provider de Docker, que lo resolvería (se probó: Traefik no arranca con ese flag).
+- **Consul corre en modo `-dev`:** un solo nodo, con los datos en memoria. Alcanza para el TP porque las réplicas se vuelven a registrar solas al arrancar; en producción serían varios servidores para tolerar la caída de uno.
 
 ## Pruebas de carga (TP de test de carga y stress)
 
@@ -389,7 +443,7 @@ En Git Bash (Windows) hay que anteponer `MSYS_NO_PATHCONV=1` y usar `$(pwd -W)` 
 - `PDF_SET=sinteticos` (agregado con `-e`) corre las pruebas con los PDFs generados.
 - El script de Vegeta acepta además `RATE`, `DURATION` y `TIMEOUT` (por defecto, `50`, `30s` y `30s`).
 - El script de k6 comparte una sola copia de los PDFs entre los 100 VUs (`k6/experimental/fs`). Con el `open()` clásico cada VU tendría su propia copia: unos 1.4 GB de RAM.
-- Correr un proyecto por vez (`docker compose down` entre uno y otro): si hay otro proyecto con labels de Traefik corriendo en el mismo Docker, los proxies se mezclan las réplicas.
+- Correr un proyecto por vez (`docker compose down` entre uno y otro): otro proyecto con su propio Traefik en el mismo Docker compite por el puerto 8080 y por los recursos de la máquina, y altera las mediciones.
 
 Las salidas de cada medición se guardan en `tests/stress/results/`, nombradas por prueba, set de PDFs o motor de extracción, y cantidad de réplicas.
 
@@ -409,4 +463,5 @@ Los resultados de `tests/stress/results/` se midieron en una notebook con un i5-
 | Dependencias           | uv                     |
 | Contenedores            | Docker / Docker Compose |
 | Reverse proxy           | Traefik v3.6           |
+| Descubrimiento de servicios | Consul 1.21 (cliente HTTP: requests) |
 | Pruebas de carga        | Grafana k6, Vegeta     |

@@ -44,6 +44,10 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] Traefik publica HTTP en 8080 (antes 8000) y HTTPS en 443 con certificado autofirmado; responde a cualquier nombre de host
 - [x] Verificado con los archivos de la cátedra: Vegeta 100% de éxito; k6 100% con `--insecure-skip-tls-verify` (sin ese flag el certificado autofirmado se rechaza)
 
+## Extra — Patrones pedidos para el coloquio
+- [x] Circuit breaker en Traefik (`NetworkErrorRatio() > 0.50`, 10 s abierto, 10 s de recuperación) y timeout de 60 s hacia las réplicas. Verificado pausando las réplicas: `504`, luego `503` inmediato, luego `200`
+- [x] Descubrimiento de servicios con Consul: cada réplica se registra al arrancar (con health check) y se da de baja al apagarse; Traefik lee los tags desde Consul con `watch` y ya no monta `docker.sock`. Verificado: 5 réplicas registradas, balanceo entre las 5 y 40/40 pedidos en `200` mientras se apagaban réplicas
+
 ## Fase 5 — Informe
 - [ ] Arquitectura y decisiones de diseño
 - [ ] Cuello de botella identificado
