@@ -11,6 +11,10 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      # Circuit breaker timeout: without it Traefik waits forever on a hung replica and the
+      # failure is never counted. 60 s is k6's client timeout; legitimate requests took up
+      # to 44 s under the spike (queued by backpressure), so none of them is cut.
+      - --serversTransport.forwardingTimeouts.responseHeaderTimeout=60s
       - --log.level=INFO
     ports:
       - "${PORT:-8080}:80"
@@ -53,7 +57,16 @@ services:
       - traefik.enable=true
       - traefik.http.routers.extractor.rule=PathPrefix(`/`)
       - traefik.http.routers.extractor.entrypoints=web
+      - traefik.http.routers.extractor.middlewares=extractor-circuit-breaker
       - traefik.http.routers.extractor-tls.rule=PathPrefix(`/`)
       - traefik.http.routers.extractor-tls.entrypoints=websecure
       - traefik.http.routers.extractor-tls.tls=true
+      - traefik.http.routers.extractor-tls.middlewares=extractor-circuit-breaker
       - traefik.http.services.extractor.loadbalancer.server.port=8000
+      # Circuit breaker, applied to both routers. It opens when over half of the requests
+      # fail with a network error (502/504: replicas down or past the timeout), answers
+      # 503 at once for 10 s, then lets traffic back in gradually over 10 s. The 503 of
+      # the extractor's own backpressure is not a network error, so it never opens it.
+      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.expression=NetworkErrorRatio() > 0.50
+      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.fallbackDuration=10s
+      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.recoveryDuration=10s
