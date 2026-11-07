@@ -1,14 +1,18 @@
 services:
   # Reverse proxy: the only service reachable from outside. It discovers the
-  # extractor replicas through the Docker API and balances requests among them.
+  # extractor replicas through Consul and balances requests among them.
   # It listens where the professor's load tests point: HTTP on 8080 (Vegeta's
   # targets file) and HTTPS on 443 (k6's https://extract.universidad.localhost),
   # the latter with the self-signed certificate Traefik generates by default.
   traefik:
     image: traefik:v3.6
     command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
+      # Routing comes from the tags each replica registers in Consul, so Traefik no longer
+      # mounts /var/run/docker.sock. watch=true reacts to replicas leaving at once instead
+      # of polling every 15 s (meanwhile it kept sending requests to a gone replica).
+      - --providers.consulcatalog.endpoint.address=consul:8500
+      - --providers.consulcatalog.exposedByDefault=false
+      - --providers.consulcatalog.watch=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       # Circuit breaker timeout: without it Traefik waits forever on a hung replica and the
@@ -19,9 +23,9 @@ services:
     ports:
       - "${PORT:-8080}:80"
       - "${HTTPS_PORT:-443}:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
+      consul:
+        condition: service_healthy
       extractor:
         condition: service_healthy
     restart: unless-stopped
@@ -30,6 +34,20 @@ services:
         limits:
           cpus: "1.0"
           memory: 512M  # under Vegeta it reached ~210 MB; 256 MB left too little margin
+
+  # Service registry: each extractor replica registers itself here on startup (with an
+  # HTTP health check on /health) and Traefik reads the healthy ones. Dev mode: a single
+  # node with in-memory data, enough for the TP since replicas re-register on startup.
+  # No published ports: only Traefik and the replicas use it.
+  consul:
+    image: hashicorp/consul:1.21
+    command: agent -dev -client=0.0.0.0
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   extractor:
     build:
@@ -40,6 +58,30 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      CONSUL_URL: http://consul:8500
+      # Traefik's configuration for this service, registered as Consul tags (JSON list).
+      # Circuit breaker, applied to both routers: it opens when over half of the requests
+      # fail with a network error (502/504: replicas down or past the timeout), answers
+      # 503 at once for 10 s, then lets traffic back in gradually over 10 s. The 503 of
+      # the extractor's own backpressure is not a network error, so it never opens it.
+      CONSUL_SERVICE_TAGS: >-
+        [
+        "traefik.enable=true",
+        "traefik.http.routers.extractor.rule=PathPrefix(`/`)",
+        "traefik.http.routers.extractor.entrypoints=web",
+        "traefik.http.routers.extractor.middlewares=extractor-circuit-breaker",
+        "traefik.http.routers.extractor-tls.rule=PathPrefix(`/`)",
+        "traefik.http.routers.extractor-tls.entrypoints=websecure",
+        "traefik.http.routers.extractor-tls.tls=true",
+        "traefik.http.routers.extractor-tls.middlewares=extractor-circuit-breaker",
+        "traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.expression=NetworkErrorRatio() > 0.50",
+        "traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.fallbackDuration=10s",
+        "traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.recoveryDuration=10s"
+        ]
+    depends_on:
+      consul:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
@@ -53,20 +95,3 @@ services:
         limits:
           cpus: "1.0"
           memory: 512M
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.extractor.rule=PathPrefix(`/`)
-      - traefik.http.routers.extractor.entrypoints=web
-      - traefik.http.routers.extractor.middlewares=extractor-circuit-breaker
-      - traefik.http.routers.extractor-tls.rule=PathPrefix(`/`)
-      - traefik.http.routers.extractor-tls.entrypoints=websecure
-      - traefik.http.routers.extractor-tls.tls=true
-      - traefik.http.routers.extractor-tls.middlewares=extractor-circuit-breaker
-      - traefik.http.services.extractor.loadbalancer.server.port=8000
-      # Circuit breaker, applied to both routers. It opens when over half of the requests
-      # fail with a network error (502/504: replicas down or past the timeout), answers
-      # 503 at once for 10 s, then lets traffic back in gradually over 10 s. The 503 of
-      # the extractor's own backpressure is not a network error, so it never opens it.
-      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.expression=NetworkErrorRatio() > 0.50
-      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.fallbackDuration=10s
-      - traefik.http.middlewares.extractor-circuit-breaker.circuitbreaker.recoveryDuration=10s
