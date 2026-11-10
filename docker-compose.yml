@@ -20,9 +20,12 @@ services:
       # to 44 s under the spike (queued by backpressure), so none of them is cut.
       - --serversTransport.forwardingTimeouts.responseHeaderTimeout=60s
       - --log.level=INFO
+      - --api.dashboard=true
+      - --api.insecure=true
     ports:
       - "${PORT:-8080}:80"
       - "${HTTPS_PORT:-443}:443"
+      - "127.0.0.1:8081:8080"
     depends_on:
       consul:
         condition: service_healthy
