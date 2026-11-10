@@ -250,7 +250,7 @@ cliente ──► Traefik (:8080 HTTP · :443 HTTPS) ──► extractor réplic
                └──── ¿qué réplicas hay? ──► Consul ◄──── se registran al arrancar
 ```
 
-- **Traefik** es el único servicio con puerto publicado. Le pregunta a **Consul** qué réplicas hay y reparte los pedidos entre las que tienen el health check sano (ver [Descubrimiento de servicios](#descubrimiento-de-servicios-consul)).
+- **Traefik** es el único servicio con puerto publicado. Le pregunta a **Consul** qué réplicas hay y reparte los pedidos entre las que tienen el health check sano (ver [Descubrimiento de servicios](#descubrimiento-de-servicios-consul)). Además sirve su dashboard en `localhost:8081` (ver [Dashboard de Traefik](#dashboard-de-traefik)).
 - **consul** es el registro de servicios. No publica puertos: solo lo usan Traefik y las réplicas, dentro de la red de Docker.
 - **extractor** corre `EXTRACTOR_REPLICAS` réplicas (5 por defecto, el máximo que permite el TP), cada una limitada a **1 CPU y 512 MB** de RAM. Traefik también tiene 1 CPU y 512 MB: bajo la prueba de Vegeta llegó a usar unos 210 MB.
 - Traefik protege a las réplicas con un **circuit breaker** (ver [Circuit breaker](#circuit-breaker)).
@@ -271,6 +271,7 @@ cliente ──► Traefik (:8080 HTTP · :443 HTTPS) ──► extractor réplic
    - `http://localhost:8080` (o el puerto que definas en `PORT`). Es donde apunta el archivo de objetivos de Vegeta de la cátedra.
    - `https://localhost` o `https://extract.universidad.localhost` (puerto `HTTPS_PORT`, 443 por defecto). Es donde apunta el script de k6 de la cátedra. El certificado lo genera Traefik y es autofirmado: con k6 hay que agregar `--insecure-skip-tls-verify` y con curl `-k`. La alternativa es usar `http://localhost:8080`.
    - Traefik responde a cualquier nombre de host, así que no hace falta configurar ningún dominio.
+   - Dashboard de Traefik: `http://localhost:8081/dashboard/` (solo desde esta máquina).
 
 4. Para correrlo en segundo plano:
 
@@ -423,6 +424,29 @@ docker start pdf-extract-service-extractor-1
 
 - **Con todas las réplicas caídas, Traefik responde `404`, no `503`.** Cuando Consul marca todos los health checks como críticos, Traefik borra el router. El provider de Consul de Traefik v3.6 no tiene la opción `allowEmptyServices` del provider de Docker, que lo resolvería (se probó: Traefik no arranca con ese flag).
 - **Consul corre en modo `-dev`:** un solo nodo, con los datos en memoria. Alcanza para el TP porque las réplicas se vuelven a registrar solas al arrancar; en producción serían varios servidores para tolerar la caída de uno.
+- **Una réplica que muere de golpe puede quedar registrada.** Si muere sin apagarse (por ejemplo, al cerrar Docker Desktop) no llega a darse de baja. Normalmente su health check pasa a crítico y Consul la borra al minuto; pero si una réplica nueva recibe su misma IP, el check de la entrada vieja le responde la réplica nueva y la entrada queda como sana. El tráfico se atiende bien, pero Consul y el dashboard muestran más réplicas de las que hay. Se evita levantando todo desde cero, que también reinicia Consul: `docker compose down && docker compose up -d --build`.
+
+## Dashboard de Traefik
+
+Traefik trae una página web de **solo lectura** que muestra la configuración que armó (a partir de sus flags y de los tags de Consul) y si tiene errores. Con el compose levantado:
+
+**http://localhost:8081/dashboard/**
+
+- **Por qué en el 8081:** el `8080` de la máquina lleva el tráfico del servicio, que es donde apuntan los scripts de carga de la cátedra. El dashboard lo sirve Traefik en su puerto interno `8080` y el compose lo publica en el `8081`.
+- **Por qué solo en `localhost`:** se activa en modo `insecure` (sin contraseña), así que se publica en `127.0.0.1` y no se puede abrir desde otra máquina. En producción iría detrás de un router con usuario y contraseña (`basicauth`) y HTTPS.
+
+Qué mirar:
+
+| Pantalla | Qué tiene que mostrar |
+|----------|-----------------------|
+| **Dashboard** (inicio) | Routers, services y middlewares con **0 warnings y 0 errores** |
+| **HTTP → Routers** | `extractor@consulcatalog` (entrypoint `web`) y `extractor-tls@consulcatalog` (`websecure`), los dos con `PathPrefix(/)` y el middleware `extractor-circuit-breaker` |
+| **HTTP → Services** | `extractor@consulcatalog` con **un servidor por réplica** (5): ahí se ve el balanceo |
+| **HTTP → Middlewares** | `extractor-circuit-breaker@consulcatalog` con su expresión, ventana y recuperación (ver [Circuit breaker](#circuit-breaker)) |
+
+El sufijo `@consulcatalog` indica que esa configuración vino de Consul. Además de los del Extractor, aparecen los routers internos del propio dashboard (`api@internal`, `dashboard@internal`).
+
+El dashboard no muestra tráfico ni latencias: eso son métricas (Prometheus/Grafana), que el servicio no expone.
 
 ## Pruebas de carga (TP de test de carga y stress)
 

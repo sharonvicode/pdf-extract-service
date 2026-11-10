@@ -50,6 +50,7 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 
 - [x] Vulnerabilidades (grype): imagen en dos etapas sin `uv` ni `pip` y con `apt-get upgrade`. De 202 a 189 vulnerabilidades y de 21 a 8 con arreglo disponible (todas del intérprete Python 3.12); imagen de 700 a 333 MB
 - [ ] Evaluar Python 3.13 (corrige las 8 restantes; requiere repetir las pruebas de carga)
+- [x] Dashboard de Traefik en `http://localhost:8081/dashboard/` (solo localhost). Verificado: 0 warnings y 0 errores, 5 servidores en el service y el circuit breaker en los dos routers
 
 ## Fase 5 — Informe
 - [ ] Arquitectura y decisiones de diseño
