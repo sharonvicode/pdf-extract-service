@@ -54,6 +54,7 @@ pdf-extract-service/
 │   ├── test_dependencies.py          # Tests de cómo los endpoints obtienen el servicio
 │   ├── test_docker_compose.py        # Tests del compose: descubrimiento por Consul y circuit breaker
 │   ├── test_service_registry.py      # Tests del registro en Consul (contra un Consul falso por HTTP)
+│   ├── test_docker_image.py          # Tests de la imagen construida (solo con EXTRACTOR_IMAGE)
 │   └── stress/                       # Pruebas de carga del TP (k6 y Vegeta)
 │       ├── generate_pdfs.py          # Genera los 4 PDFs sintéticos
 │       ├── pdfs/                     # Los 4 PDFs oficiales de la cátedra
@@ -224,6 +225,13 @@ Linter:
 uv run ruff check .
 ```
 
+Tests de la imagen Docker: levantan contenedores de una imagen ya construida, así que se saltean salvo que `EXTRACTOR_IMAGE` indique cuál probar. Verifican que no lleve `uv` ni `pip`, que tenga los paquetes de Debian con los arreglos de seguridad, que la app cargue y que corra sin root (ver [Seguridad de la imagen](#seguridad-de-la-imagen-grype)):
+
+```bash
+docker build -t extractor-service:latest .
+EXTRACTOR_IMAGE=extractor-service:latest uv run pytest tests/test_docker_image.py -v
+```
+
 Los fixtures en `tests/conftest.py` generan PDFs válidos en memoria (no hay binarios versionados), lo que permite cubrir distintos tamaños de archivo:
 
 - `small_pdf_bytes` → 1 página
@@ -291,6 +299,38 @@ docker run --rm -p 8000:8000 extractor-service:latest
 ```
 
 El contenedor corre como usuario no-root, expone el puerto `8000` y define un `HEALTHCHECK` contra `/health`.
+
+### Seguridad de la imagen (grype)
+
+[grype](https://github.com/anchore/grype) busca vulnerabilidades conocidas (CVE) en todo lo que trae la imagen: los paquetes de Debian de la imagen base, el intérprete de Python, las dependencias del `.venv` y cualquier binario suelto. No hace falta instalarlo; corre en un contenedor:
+
+```bash
+docker build -t extractor-service:latest .
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v grype-db:/root/.cache/grype \
+  anchore/grype:latest extractor-service:latest
+```
+
+La primera vez descarga su base de datos de vulnerabilidades (el volumen `grype-db` la guarda para las siguientes). En Git Bash hay que anteponer `MSYS_NO_PATHCONV=1`.
+
+Para reducir lo que reporta, el `Dockerfile` construye en dos etapas: la imagen final no lleva nada que el servicio no use al correr.
+
+| Cambio | Qué quitó |
+|--------|-----------|
+| `uv` solo en la etapa de construcción | Las librerías de Rust que trae el binario de `uv` (`rustls`) |
+| `pip` desinstalado (las dependencias se instalan con `uv`) | `pip` 25.0.1, que viene en la imagen base |
+| `apt-get upgrade` | `zlib1g` con dos CVE High ya corregidos en Debian, que la imagen oficial todavía no incluía |
+
+Resultado (grype 0.121.3, noviembre de 2026):
+
+| | Antes | Después |
+|--|-------|---------|
+| Vulnerabilidades | 202 (61 High) | 189 (59 High) |
+| Con arreglo disponible | 21 | 8 |
+| Tamaño de la imagen | 700 MB | 333 MB |
+
+- **Las dependencias propias del servicio** (`fastapi`, `pymupdf`, `requests`, `uvicorn`, etc.) no tienen vulnerabilidades reportadas.
+- **Las 8 con arreglo que quedan son del intérprete Python 3.12.** Se corrigen en Python 3.13 o 3.14; cambiar de versión obliga a repetir las pruebas de carga, así que es una decisión aparte.
+- **Las otras 181 son paquetes de Debian sin arreglo publicado** (`libc`, `util-linux`, `ncurses`…), las mismas en cualquier imagen basada en `python:3.12-slim`. Se resuelven solas al reconstruir cuando Debian publique los arreglos (el `apt-get upgrade` los toma).
 
 ## Backpressure
 
