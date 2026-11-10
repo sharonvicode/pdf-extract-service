@@ -123,6 +123,14 @@ class TestBuildRegistration:
 
         assert build_registration(settings) == REGISTRATION
 
+    def test_announces_the_port_the_server_listens_on(self, monkeypatch):
+        # Uvicorn always listens on 8000 inside the container (Dockerfile CMD); the published
+        # port is changed in the compose port mapping. A configurable announced port could
+        # drift from the real one and send Traefik's traffic to a port nobody listens on.
+        monkeypatch.setenv("SERVICE_PORT", "9000")
+
+        assert build_registration(Settings(_env_file=None)).port == 8000
+
 
 class TestAppLifespan:
     def test_registers_on_startup_and_deregisters_on_shutdown(self, consul, settings_from_env):
