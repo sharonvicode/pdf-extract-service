@@ -48,6 +48,9 @@ Entrega: 07/10/2026. Marca a superar (profesor):
 - [x] Circuit breaker en Traefik (`NetworkErrorRatio() > 0.50`, 10 s abierto, 10 s de recuperación) y timeout de 60 s hacia las réplicas. Verificado pausando las réplicas: `504`, luego `503` inmediato, luego `200`
 - [x] Descubrimiento de servicios con Consul: cada réplica se registra al arrancar (con health check) y se da de baja al apagarse; Traefik lee los tags desde Consul con `watch` y ya no monta `docker.sock`. Verificado: 5 réplicas registradas, balanceo entre las 5 y 40/40 pedidos en `200` mientras se apagaban réplicas
 
+- [x] Vulnerabilidades (grype): imagen en dos etapas sin `uv` ni `pip` y con `apt-get upgrade`. De 202 a 189 vulnerabilidades y de 21 a 8 con arreglo disponible (todas del intérprete Python 3.12); imagen de 700 a 333 MB
+- [ ] Evaluar Python 3.13 (corrige las 8 restantes; requiere repetir las pruebas de carga)
+
 ## Fase 5 — Informe
 - [ ] Arquitectura y decisiones de diseño
 - [ ] Cuello de botella identificado
