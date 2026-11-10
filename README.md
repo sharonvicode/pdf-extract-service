@@ -113,7 +113,6 @@ cp .env.example .env
 | `CONSUL_URL`             | Dirección de Consul. Sin ella la réplica no se registra (desarrollo local, tests). El compose la define como `http://consul:8500` | — |
 | `CONSUL_SERVICE_NAME`    | Nombre con el que la réplica se registra en Consul | `extractor` |
 | `CONSUL_SERVICE_TAGS`    | Tags del registro, como lista JSON: es la configuración de Traefik (routers y circuit breaker). El compose los define | `[]` |
-| `SERVICE_PORT`           | Puerto en el que escucha la réplica, el que Consul anuncia y chequea | `8000` |
 
 ## Levantar el servicio localmente
 
@@ -447,6 +446,30 @@ Qué mirar:
 El sufijo `@consulcatalog` indica que esa configuración vino de Consul. Además de los del Extractor, aparecen los routers internos del propio dashboard (`api@internal`, `dashboard@internal`).
 
 El dashboard no muestra tráfico ni latencias: eso son métricas (Prometheus/Grafana), que el servicio no expone.
+
+## Twelve-Factor App
+
+Las [12 prácticas](https://12factor.net/es/) para servicios que se despliegan y escalan en contenedores, y cómo las cumple el Extractor:
+
+| # | Factor | Cómo lo cumple |
+|---|--------|----------------|
+| I | Código base | Un repositorio propio para el servicio; el mismo código se despliega en cada entorno |
+| II | Dependencias | Declaradas con versión exacta en `pyproject.toml` y fijadas en `uv.lock`; se instalan aisladas en un `.venv` |
+| III | Configuración | Toda en variables de entorno (`app/core/config.py`, con `pydantic-settings`). `.env` no se versiona; `.env.example` documenta cada variable. Hasta la configuración de Traefik llega por el entorno (`CONSUL_SERVICE_TAGS`) |
+| IV | Servicios de respaldo | Consul es un recurso conectado por URL (`CONSUL_URL`): se reemplaza sin tocar el código |
+| V | Construir, distribuir, ejecutar | Construir: `Dockerfile`. Distribuir: la imagen más la configuración del compose. Ejecutar: `docker compose up` |
+| VI | Procesos | Sin estado: el PDF se procesa en memoria, no se escribe nada a disco y ningún pedido depende de otro. El limitador de concurrencia es por proceso a propósito (ver [Backpressure](#backpressure)) |
+| VII | Asignación de puertos | Uvicorn expone el servicio en el puerto `8000` del contenedor; el puerto publicado se elige en el compose (`PORT`, `HTTPS_PORT`) |
+| VIII | Concurrencia | Escala horizontalmente con réplicas (`EXTRACTOR_REPLICAS`, 5) detrás de Traefik |
+| IX | Desechabilidad | Arranca en segundos; con `SIGTERM` termina los pedidos en curso y se da de baja de Consul. Si no puede registrarse, no arranca (fail fast) |
+| X | Paridad desarrollo/producción | La misma imagen y el mismo `uv.lock` en cualquier máquina; los mismos servicios (Traefik, Consul) en local |
+| XI | Logs | Se escriben a la salida estándar como flujo de eventos; Docker los recolecta (`docker compose logs`) |
+| XII | Procesos de administración | Las tareas puntuales (como `tests/stress/generate_pdfs.py`) se corren con el mismo código y dependencias: `uv run …` |
+
+Limitaciones:
+
+- **V:** la imagen siempre se etiqueta `extractor-service:latest`, así que no identifica qué versión del código corre ni permite volver a una anterior. En un despliegue real se etiquetaría además con el commit (`extractor-service:<sha>`).
+- **X:** Consul corre en modo `-dev` (un solo nodo), distinto de un despliegue productivo (ver [Limitaciones](#limitaciones)).
 
 ## Pruebas de carga (TP de test de carga y stress)
 

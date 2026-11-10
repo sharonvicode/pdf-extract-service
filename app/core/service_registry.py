@@ -12,6 +12,10 @@ import requests
 from app.core.config import Settings
 
 REQUEST_TIMEOUT_SECONDS = 5
+# The port uvicorn listens on inside the container (Dockerfile CMD). It is fixed on
+# purpose: the published port changes in the compose port mapping, and a configurable
+# value here could drift from the real one and send Traefik's traffic nowhere.
+SERVER_PORT = 8000
 
 
 class ServiceRegistryError(Exception):
@@ -34,7 +38,7 @@ def build_registration(settings: Settings) -> ServiceRegistration:
         service_id=f"{settings.consul_service_name}-{hostname}",
         name=settings.consul_service_name,
         address=socket.gethostbyname(hostname),
-        port=settings.service_port,
+        port=SERVER_PORT,
         tags=tuple(settings.consul_service_tags),
     )
 
