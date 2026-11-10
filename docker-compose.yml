@@ -20,9 +20,15 @@ services:
       # to 44 s under the spike (queued by backpressure), so none of them is cut.
       - --serversTransport.forwardingTimeouts.responseHeaderTimeout=60s
       - --log.level=INFO
+      # Read-only dashboard (routers, services, middlewares and their errors), served by
+      # Traefik on its internal port 8080. "insecure" means no password, so it is published
+      # on localhost only, and on host port 8081 because 8080 carries the service traffic.
+      - --api.dashboard=true
+      - --api.insecure=true
     ports:
       - "${PORT:-8080}:80"
       - "${HTTPS_PORT:-443}:443"
+      - "127.0.0.1:8081:8080"
     depends_on:
       consul:
         condition: service_healthy

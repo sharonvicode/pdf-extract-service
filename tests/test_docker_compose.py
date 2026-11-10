@@ -64,6 +64,17 @@ class TestServiceDiscovery:
         assert extractor["depends_on"]["consul"]["condition"] == "service_healthy"
 
 
+class TestDashboard:
+    def test_traefik_serves_its_dashboard(self, traefik):
+        assert "--api.dashboard=true" in traefik["command"]
+        assert "--api.insecure=true" in traefik["command"]
+
+    def test_dashboard_is_only_reachable_from_this_machine(self, traefik):
+        # The insecure API has no password, so it is published on localhost only.
+        # Host port 8081: 8080 already carries the service traffic.
+        assert "127.0.0.1:8081:8080" in traefik["ports"]
+
+
 class TestCircuitBreaker:
     def test_a_hung_replica_counts_as_a_failure(self, traefik):
         # Without a timeout Traefik waits forever on a replica that does not answer, so the
