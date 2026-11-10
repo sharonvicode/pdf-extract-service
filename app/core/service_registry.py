@@ -12,6 +12,9 @@ import requests
 from app.core.config import Settings
 
 REQUEST_TIMEOUT_SECONDS = 5
+# The port uvicorn listens on inside the container (Dockerfile CMD). It is fixed on
+# purpose: the published port changes in the compose port mapping, and a configurable
+# value here could drift from the real one and send Traefik's traffic nowhere.
 SERVER_PORT = 8000
 
 
