@@ -12,6 +12,7 @@ import requests
 from app.core.config import Settings
 
 REQUEST_TIMEOUT_SECONDS = 5
+SERVER_PORT = 8000
 
 
 class ServiceRegistryError(Exception):
@@ -34,7 +35,7 @@ def build_registration(settings: Settings) -> ServiceRegistration:
         service_id=f"{settings.consul_service_name}-{hostname}",
         name=settings.consul_service_name,
         address=socket.gethostbyname(hostname),
-        port=settings.service_port,
+        port=SERVER_PORT,
         tags=tuple(settings.consul_service_tags),
     )
 

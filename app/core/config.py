@@ -28,7 +28,6 @@ class Settings(BaseSettings):
     consul_url: str | None = None
     consul_service_name: str = "extractor"
     consul_service_tags: list[str] = []
-    service_port: int = 8000
 
     @property
     def max_file_size_bytes(self) -> int:
